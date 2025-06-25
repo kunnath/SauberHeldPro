@@ -612,111 +612,606 @@ def show_booking_requests():
             st.warning("Please add customers first before creating booking requests")
 
 def show_job_management():
-    """Job management and assignment"""
-    st.title("💼 Job Management")
+    """Enhanced job management and assignment system for managers"""
+    st.title("💼 Job Management & Assignment")
     
-    tab1, tab2 = st.tabs(["Approved Jobs", "Assign Employees"])
+    # Main navigation tabs
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📋 All Jobs", 
+        "👥 Assign Employees", 
+        "📊 Job Board", 
+        "📦 Bulk Operations",
+        "📈 Assignment Analytics"
+    ])
     
     conn = init_database()
     
     with tab1:
-        # Show approved jobs that need assignment
-        approved_jobs = pd.read_sql_query('''
-            SELECT j.*, c.name as customer_name, c.phone as customer_phone,
-                   e.name as employee_name
-            FROM jobs j
-            JOIN customers c ON j.customer_id = c.id
-            LEFT JOIN employees e ON j.employee_id = e.id
-            WHERE j.status IN ('approved', 'assigned', 'in_progress')
-            ORDER BY j.scheduled_date, j.scheduled_time
-        ''', conn)
-        
-        if not approved_jobs.empty:
-            for _, job in approved_jobs.iterrows():
-                status_color = {
-                    'approved': '🟡',
-                    'assigned': '🟠', 
-                    'in_progress': '🔵',
-                    'completed': '🟢'
-                }.get(job['status'], '⚪')
-                
-                with st.expander(f"{status_color} {job['title']} - {job['customer_name']} ({job['status'].title()})"):
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.write(f"**Customer:** {job['customer_name']}")
-                        st.write(f"**Date:** {job['scheduled_date']}")
-                        st.write(f"**Time:** {job['scheduled_time']}")
-                        st.write(f"**Duration:** {job['duration']} min")
-                    
-                    with col2:
-                        st.write(f"**Location:** {job['location']}")
-                        st.write(f"**Service:** {job['service_type']}")
-                        st.write(f"**Price:** ${job['price']:.2f}")
-                        st.write(f"**Status:** {job['status'].title()}")
-                    
-                    with col3:
-                        current_employee = job['employee_name'] if job['employee_name'] else "Not assigned"
-                        st.write(f"**Assigned to:** {current_employee}")
-                        
-                        if job['status'] == 'assigned':
-                            if st.button("Start Job", key=f"start_{job['id']}"):
-                                conn.execute("UPDATE jobs SET status = 'in_progress' WHERE id = ?", (job['id'],))
-                                conn.commit()
-                                st.rerun()
-                        
-                        if job['status'] == 'in_progress':
-                            if st.button("Complete Job", key=f"complete_{job['id']}"):
-                                conn.execute("UPDATE jobs SET status = 'completed' WHERE id = ?", (job['id'],))
-                                conn.commit()
-                                st.rerun()
-        else:
-            st.info("No approved jobs found")
+        show_all_jobs_dashboard(conn)
     
     with tab2:
-        st.subheader("Assign Employees to Jobs")
+        show_employee_assignment_interface(conn)
+    
+    with tab3:
+        show_job_board_view(conn)
+    
+    with tab4:
+        show_bulk_operations(conn)
+    
+    with tab5:
+        show_assignment_analytics(conn)
+
+def show_all_jobs_dashboard(conn):
+    """Enhanced dashboard showing all jobs with filters and quick actions"""
+    st.subheader("📋 Jobs Dashboard")
+    
+    # Filters
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        status_filter = st.selectbox(
+            "Filter by Status",
+            ["All", "pending", "approved", "assigned", "in_progress", "completed", "cancelled"]
+        )
+    
+    with col2:
+        date_filter = st.date_input("From Date", value=date.today() - timedelta(days=7))
+    
+    with col3:
+        end_date_filter = st.date_input("To Date", value=date.today() + timedelta(days=7))
+    
+    with col4:
+        employee_filter = st.selectbox(
+            "Filter by Employee",
+            ["All"] + [emp[1] for emp in conn.execute("SELECT id, name FROM employees").fetchall()]
+        )
+    
+    # Build query with filters
+    base_query = '''
+        SELECT j.*, c.name as customer_name, c.phone as customer_phone,
+               e.name as employee_name, e.hourly_rate as employee_rate
+        FROM jobs j
+        JOIN customers c ON j.customer_id = c.id
+        LEFT JOIN employees e ON j.employee_id = e.id
+        WHERE j.scheduled_date BETWEEN ? AND ?
+    '''
+    
+    params = [date_filter.strftime('%Y-%m-%d'), end_date_filter.strftime('%Y-%m-%d')]
+    
+    if status_filter != "All":
+        base_query += " AND j.status = ?"
+        params.append(status_filter)
+    
+    if employee_filter != "All":
+        base_query += " AND e.name = ?"
+        params.append(employee_filter)
+    
+    base_query += " ORDER BY j.scheduled_date, j.scheduled_time"
+    
+    jobs = pd.read_sql_query(base_query, conn, params=params)
+    
+    if not jobs.empty:
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
         
-        # Get unassigned approved jobs
-        unassigned_jobs = pd.read_sql_query('''
-            SELECT j.*, c.name as customer_name
-            FROM jobs j
-            JOIN customers c ON j.customer_id = c.id
-            WHERE j.status = 'approved' AND j.employee_id IS NULL
-        ''', conn)
+        with col1:
+            st.metric("Total Jobs", len(jobs))
         
-        if not unassigned_jobs.empty:
-            for _, job in unassigned_jobs.iterrows():
-                with st.expander(f"Assign: {job['title']} - {job['customer_name']}"):
-                    # Get available employees
-                    employees = pd.read_sql_query("SELECT id, name, employment_type, hourly_rate FROM employees", conn)
+        with col2:
+            unassigned = len(jobs[jobs['employee_id'].isna()])
+            st.metric("Unassigned", unassigned)
+        
+        with col3:
+            in_progress = len(jobs[jobs['status'] == 'in_progress'])
+            st.metric("In Progress", in_progress)
+        
+        with col4:
+            total_value = jobs['price'].sum()
+            st.metric("Total Value", f"${total_value:.2f}")
+        
+        st.divider()
+        
+        # Job cards with enhanced functionality
+        for _, job in jobs.iterrows():
+            status_colors = {
+                'pending': '🟡',
+                'approved': '🟠',
+                'assigned': '🔵', 
+                'in_progress': '🟣',
+                'completed': '🟢',
+                'cancelled': '🔴'
+            }
+            
+            status_color = status_colors.get(job['status'], '⚪')
+            
+            with st.expander(f"{status_color} {job['title']} - {job['customer_name']} ({job['status'].title()})"):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.write("**📅 Schedule**")
+                    st.write(f"Date: {job['scheduled_date']}")
+                    st.write(f"Time: {job['scheduled_time']}")
+                    st.write(f"Duration: {job['duration']} min")
+                
+                with col2:
+                    st.write("**👤 Customer**")
+                    st.write(f"Name: {job['customer_name']}")
+                    st.write(f"Phone: {job['customer_phone']}")
+                    st.write(f"Location: {job['location']}")
+                
+                with col3:
+                    st.write("**💼 Job Details**")
+                    st.write(f"Service: {job['service_type']}")
+                    st.write(f"Price: ${job['price']:.2f}")
+                    st.write(f"Status: {job['status'].title()}")
+                
+                with col4:
+                    st.write("**👷 Assignment**")
+                    current_employee = job['employee_name'] if job['employee_name'] else "Not assigned"
+                    st.write(f"Employee: {current_employee}")
+                    
+                    if job['employee_name']:
+                        est_cost = (job['duration'] / 60) * job['employee_rate']
+                        st.write(f"Est. Cost: ${est_cost:.2f}")
+                
+                # Action buttons
+                st.write("**🔧 Quick Actions**")
+                action_col1, action_col2, action_col3, action_col4 = st.columns(4)
+                
+                with action_col1:
+                    if job['status'] == 'assigned' and st.button("▶️ Start", key=f"start_{job['id']}"):
+                        conn.execute("UPDATE jobs SET status = 'in_progress' WHERE id = ?", (job['id'],))
+                        conn.commit()
+                        st.success("Job started!")
+                        st.rerun()
+                
+                with action_col2:
+                    if job['status'] == 'in_progress' and st.button("✅ Complete", key=f"complete_{job['id']}"):
+                        conn.execute("UPDATE jobs SET status = 'completed' WHERE id = ?", (job['id'],))
+                        conn.commit()
+                        st.success("Job completed!")
+                        st.rerun()
+                
+                with action_col3:
+                    if job['status'] in ['pending', 'approved'] and st.button("🔄 Reassign", key=f"reassign_{job['id']}"):
+                        st.session_state[f'reassign_mode_{job["id"]}'] = True
+                        st.rerun()
+                
+                with action_col4:
+                    if st.button("📝 Edit", key=f"edit_{job['id']}"):
+                        st.session_state[f'edit_mode_{job["id"]}'] = True
+                        st.rerun()
+                
+                # Reassignment interface
+                if st.session_state.get(f'reassign_mode_{job["id"]}', False):
+                    st.write("**🔄 Reassign Employee**")
+                    employees = pd.read_sql_query("SELECT id, name, employment_type FROM employees", conn)
                     
                     if not employees.empty:
-                        col1, col2 = st.columns(2)
+                        new_employee_id = st.selectbox(
+                            "Select New Employee",
+                            [None] + employees['id'].tolist(),
+                            format_func=lambda x: "Remove Assignment" if x is None else f"{employees[employees['id'] == x]['name'].iloc[0]} ({employees[employees['id'] == x]['employment_type'].iloc[0]})",
+                            key=f"new_emp_{job['id']}"
+                        )
                         
-                        with col1:
-                            st.write(f"**Job:** {job['title']}")
-                            st.write(f"**Date:** {job['scheduled_date']}")
-                            st.write(f"**Duration:** {job['duration']} minutes")
-                            st.write(f"**Location:** {job['location']}")
+                        reassign_col1, reassign_col2 = st.columns(2)
+                        with reassign_col1:
+                            if st.button("✅ Confirm Reassign", key=f"confirm_reassign_{job['id']}"):
+                                if new_employee_id:
+                                    conn.execute("UPDATE jobs SET employee_id = ?, status = 'assigned' WHERE id = ?", 
+                                               (new_employee_id, job['id']))
+                                else:
+                                    conn.execute("UPDATE jobs SET employee_id = NULL, status = 'approved' WHERE id = ?", 
+                                               (job['id'],))
+                                conn.commit()
+                                st.session_state[f'reassign_mode_{job["id"]}'] = False
+                                st.success("Employee reassigned!")
+                                st.rerun()
                         
-                        with col2:
+                        with reassign_col2:
+                            if st.button("❌ Cancel", key=f"cancel_reassign_{job['id']}"):
+                                st.session_state[f'reassign_mode_{job["id"]}'] = False
+                                st.rerun()
+    else:
+        st.info("No jobs found with the selected filters")
+
+def show_employee_assignment_interface(conn):
+    """Enhanced employee assignment interface"""
+    st.subheader("👥 Employee Assignment")
+    
+    # Get unassigned approved jobs
+    unassigned_jobs = pd.read_sql_query('''
+        SELECT j.*, c.name as customer_name, c.phone as customer_phone
+        FROM jobs j
+        JOIN customers c ON j.customer_id = c.id
+        WHERE j.status = 'approved' AND j.employee_id IS NULL
+        ORDER BY j.scheduled_date, j.scheduled_time
+    ''', conn)
+    
+    # Get all employees with their current workload
+    employees_workload = pd.read_sql_query('''
+        SELECT e.id, e.name, e.employment_type, e.hourly_rate, e.skills,
+               COUNT(j.id) as current_jobs,
+               COALESCE(SUM(j.duration), 0) as total_minutes
+        FROM employees e
+        LEFT JOIN jobs j ON e.id = j.employee_id AND j.status IN ('assigned', 'in_progress')
+        GROUP BY e.id, e.name, e.employment_type, e.hourly_rate, e.skills
+        ORDER BY current_jobs, e.name
+    ''', conn)
+    
+    if not unassigned_jobs.empty:
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.write("**🎯 Unassigned Jobs**")
+            
+            for _, job in unassigned_jobs.iterrows():
+                with st.expander(f"📋 {job['title']} - {job['customer_name']} ({job['scheduled_date']})"):
+                    job_col1, job_col2 = st.columns(2)
+                    
+                    with job_col1:
+                        st.write(f"**Customer:** {job['customer_name']}")
+                        st.write(f"**Phone:** {job['customer_phone']}")
+                        st.write(f"**Date:** {job['scheduled_date']} at {job['scheduled_time']}")
+                        st.write(f"**Duration:** {job['duration']} minutes")
+                        st.write(f"**Service:** {job['service_type']}")
+                        st.write(f"**Location:** {job['location']}")
+                        st.write(f"**Price:** ${job['price']:.2f}")
+                    
+                    with job_col2:
+                        if not employees_workload.empty:
+                            # Smart assignment suggestions
+                            st.write("**🤖 Smart Suggestions:**")
+                            
+                            # Find employees with matching skills
+                            job_skills = job['service_type'].lower() if job['service_type'] else ""
+                            suitable_employees = []
+                            
+                            for _, emp in employees_workload.iterrows():
+                                emp_skills = emp['skills'].lower() if emp['skills'] else ""
+                                skill_match = any(skill in emp_skills for skill in job_skills.split())
+                                workload_score = max(0, 10 - emp['current_jobs'])
+                                
+                                suitable_employees.append({
+                                    'id': emp['id'],
+                                    'name': emp['name'],
+                                    'score': (5 if skill_match else 0) + workload_score,
+                                    'workload': emp['current_jobs'],
+                                    'hours': emp['total_minutes'] / 60
+                                })
+                            
+                            # Sort by suitability score
+                            suitable_employees.sort(key=lambda x: x['score'], reverse=True)
+                            
+                            # Show top 3 suggestions
+                            for i, emp in enumerate(suitable_employees[:3]):
+                                icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
+                                st.write(f"{icon} {emp['name']} (Score: {emp['score']}, Jobs: {emp['workload']})")
+                            
+                            # Assignment interface
+                            st.write("**👤 Assign Employee:**")
                             employee_id = st.selectbox(
                                 "Select Employee",
-                                employees['id'].tolist(),
-                                format_func=lambda x: f"{employees[employees['id'] == x]['name'].iloc[0]} ({employees[employees['id'] == x]['employment_type'].iloc[0]})",
-                                key=f"emp_select_{job['id']}"
+                                employees_workload['id'].tolist(),
+                                format_func=lambda x: f"{employees_workload[employees_workload['id'] == x]['name'].iloc[0]} ({employees_workload[employees_workload['id'] == x]['current_jobs'].iloc[0]} jobs)",
+                                key=f"assign_emp_{job['id']}"
                             )
                             
-                            if st.button("Assign Employee", key=f"assign_{job['id']}"):
+                            # Calculate estimated cost
+                            selected_emp = employees_workload[employees_workload['id'] == employee_id].iloc[0]
+                            est_cost = (job['duration'] / 60) * selected_emp['hourly_rate']
+                            
+                            st.write(f"**💰 Estimated Cost:** ${est_cost:.2f}")
+                            st.write(f"**⏱️ Employee Rate:** ${selected_emp['hourly_rate']:.2f}/hour")
+                            
+                            if st.button("🎯 Assign Employee", key=f"assign_{job['id']}"):
                                 conn.execute("UPDATE jobs SET employee_id = ?, status = 'assigned' WHERE id = ?", 
                                            (employee_id, job['id']))
                                 conn.commit()
-                                st.success("Employee assigned successfully!")
+                                
+                                # Log the assignment
+                                if LOGGING_ENABLED:
+                                    log_user_action('job_management', 'employee_assigned', {
+                                        'job_id': job['id'],
+                                        'employee_id': employee_id,
+                                        'assigned_by': st.session_state.get('username', 'Unknown')
+                                    })
+                                
+                                st.success(f"✅ {selected_emp['name']} assigned to job!")
                                 st.rerun()
+                        else:
+                            st.warning("❌ No employees available. Please add employees first.")
+        
+        with col2:
+            st.write("**👥 Employee Workload**")
+            
+            if not employees_workload.empty:
+                for _, emp in employees_workload.iterrows():
+                    workload_color = "🔴" if emp['current_jobs'] >= 5 else "🟡" if emp['current_jobs'] >= 3 else "🟢"
+                    
+                    with st.container():
+                        st.write(f"{workload_color} **{emp['name']}**")
+                        st.write(f"Type: {emp['employment_type'].title()}")
+                        st.write(f"Current Jobs: {emp['current_jobs']}")
+                        st.write(f"Total Hours: {emp['total_minutes']/60:.1f}h")
+                        st.write(f"Rate: ${emp['hourly_rate']:.2f}/hr")
+                        if emp['skills']:
+                            st.write(f"Skills: {emp['skills']}")
+                        st.divider()
+            else:
+                st.info("No employees found")
+    else:
+        st.info("✅ All approved jobs have been assigned!")
+        
+        # Show recently assigned jobs
+        recent_assignments = pd.read_sql_query('''
+            SELECT j.*, c.name as customer_name, e.name as employee_name
+            FROM jobs j
+            JOIN customers c ON j.customer_id = c.id
+            JOIN employees e ON j.employee_id = e.id
+            WHERE j.status = 'assigned' AND j.scheduled_date >= date('now')
+            ORDER BY j.created_at DESC
+            LIMIT 5
+        ''', conn)
+        
+        if not recent_assignments.empty:
+            st.write("**🕒 Recent Assignments:**")
+            for _, job in recent_assignments.iterrows():
+                st.write(f"• {job['title']} → {job['employee_name']} ({job['scheduled_date']})")
+
+def show_job_board_view(conn):
+    """Kanban-style job board view"""
+    st.subheader("📊 Job Board (Kanban View)")
+    
+    # Get jobs grouped by status
+    jobs_by_status = {}
+    statuses = ['approved', 'assigned', 'in_progress', 'completed']
+    
+    for status in statuses:
+        jobs = pd.read_sql_query('''
+            SELECT j.*, c.name as customer_name, e.name as employee_name
+            FROM jobs j
+            JOIN customers c ON j.customer_id = c.id
+            LEFT JOIN employees e ON j.employee_id = e.id
+            WHERE j.status = ? AND j.scheduled_date >= date('now', '-7 days')
+            ORDER BY j.scheduled_date, j.scheduled_time
+        ''', conn, params=[status])
+        jobs_by_status[status] = jobs
+    
+    # Create columns for each status
+    col1, col2, col3, col4 = st.columns(4)
+    
+    columns = [col1, col2, col3, col4]
+    column_titles = ['🟠 Approved', '🔵 Assigned', '🟣 In Progress', '🟢 Completed']
+    
+    for i, (status, jobs) in enumerate(jobs_by_status.items()):
+        with columns[i]:
+            st.markdown(f"### {column_titles[i]}")
+            st.markdown(f"**Count:** {len(jobs)}")
+            
+            if not jobs.empty:
+                for _, job in jobs.iterrows():
+                    with st.container():
+                        st.markdown(f"**{job['title']}**")
+                        st.write(f"Customer: {job['customer_name']}")
+                        st.write(f"Date: {job['scheduled_date']}")
+                        if job['employee_name']:
+                            st.write(f"👤 {job['employee_name']}")
+                        st.write(f"💰 ${job['price']:.2f}")
+                        
+                        # Quick action buttons
+                        if status == 'assigned':
+                            if st.button("▶️ Start", key=f"board_start_{job['id']}"):
+                                conn.execute("UPDATE jobs SET status = 'in_progress' WHERE id = ?", (job['id'],))
+                                conn.commit()
+                                st.rerun()
+                        elif status == 'in_progress':
+                            if st.button("✅ Complete", key=f"board_complete_{job['id']}"):
+                                conn.execute("UPDATE jobs SET status = 'completed' WHERE id = ?", (job['id'],))
+                                conn.commit()
+                                st.rerun()
+                        
+                        st.divider()
+            else:
+                st.info("No jobs in this status")
+
+def show_bulk_operations(conn):
+    """Bulk operations for job management"""
+    st.subheader("📦 Bulk Operations")
+    
+    # Bulk assignment
+    st.write("### 🎯 Bulk Assignment")
+    
+    # Get unassigned jobs
+    unassigned_jobs = pd.read_sql_query('''
+        SELECT j.id, j.title, j.scheduled_date, j.scheduled_time, c.name as customer_name
+        FROM jobs j
+        JOIN customers c ON j.customer_id = c.id
+        WHERE j.status = 'approved' AND j.employee_id IS NULL
+        ORDER BY j.scheduled_date, j.scheduled_time
+    ''', conn)
+    
+    if not unassigned_jobs.empty:
+        # Multi-select jobs
+        selected_jobs = st.multiselect(
+            "Select Jobs for Bulk Assignment",
+            unassigned_jobs['id'].tolist(),
+            format_func=lambda x: f"{unassigned_jobs[unassigned_jobs['id'] == x]['title'].iloc[0]} - {unassigned_jobs[unassigned_jobs['id'] == x]['customer_name'].iloc[0]} ({unassigned_jobs[unassigned_jobs['id'] == x]['scheduled_date'].iloc[0]})"
+        )
+        
+        if selected_jobs:
+            # Select employee for bulk assignment
+            employees = pd.read_sql_query("SELECT id, name, employment_type FROM employees", conn)
+            
+            if not employees.empty:
+                bulk_employee_id = st.selectbox(
+                    "Assign to Employee",
+                    employees['id'].tolist(),
+                    format_func=lambda x: f"{employees[employees['id'] == x]['name'].iloc[0]} ({employees[employees['id'] == x]['employment_type'].iloc[0]})"
+                )
+                
+                if st.button("🎯 Bulk Assign Selected Jobs"):
+                    for job_id in selected_jobs:
+                        conn.execute("UPDATE jobs SET employee_id = ?, status = 'assigned' WHERE id = ?", 
+                                   (bulk_employee_id, job_id))
+                    conn.commit()
+                    
+                    employee_name = employees[employees['id'] == bulk_employee_id]['name'].iloc[0]
+                    st.success(f"✅ {len(selected_jobs)} jobs assigned to {employee_name}!")
+                    st.rerun()
+    else:
+        st.info("No unassigned jobs available for bulk operations")
+    
+    st.divider()
+    
+    # Bulk status update
+    st.write("### 📋 Bulk Status Update")
+    
+    status_jobs = pd.read_sql_query('''
+        SELECT j.id, j.title, j.status, j.scheduled_date, c.name as customer_name, e.name as employee_name
+        FROM jobs j
+        JOIN customers c ON j.customer_id = c.id
+        LEFT JOIN employees e ON j.employee_id = e.id
+        WHERE j.status IN ('assigned', 'in_progress')
+        ORDER BY j.scheduled_date, j.scheduled_time
+    ''', conn)
+    
+    if not status_jobs.empty:
+        selected_status_jobs = st.multiselect(
+            "Select Jobs for Status Update",
+            status_jobs['id'].tolist(),
+            format_func=lambda x: f"{status_jobs[status_jobs['id'] == x]['title'].iloc[0]} - {status_jobs[status_jobs['id'] == x]['customer_name'].iloc[0]} (Current: {status_jobs[status_jobs['id'] == x]['status'].iloc[0]})"
+        )
+        
+        if selected_status_jobs:
+            new_status = st.selectbox(
+                "New Status",
+                ['assigned', 'in_progress', 'completed', 'cancelled']
+            )
+            
+            if st.button("📋 Update Status for Selected Jobs"):
+                for job_id in selected_status_jobs:
+                    conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (new_status, job_id))
+                conn.commit()
+                
+                st.success(f"✅ {len(selected_status_jobs)} jobs updated to '{new_status}' status!")
+                st.rerun()
+
+def show_assignment_analytics(conn):
+    """Analytics dashboard for job assignments"""
+    st.subheader("📈 Assignment Analytics")
+    
+    # Time period selector
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("From Date", value=date.today() - timedelta(days=30))
+    with col2:
+        end_date = st.date_input("To Date", value=date.today())
+    
+    # Employee performance metrics
+    employee_metrics = pd.read_sql_query('''
+        SELECT e.name, e.employment_type,
+               COUNT(j.id) as total_jobs,
+               SUM(CASE WHEN j.status = 'completed' THEN 1 ELSE 0 END) as completed_jobs,
+               ROUND(AVG(j.duration), 2) as avg_duration,
+               ROUND(SUM(j.price), 2) as total_revenue,
+               ROUND(AVG(j.price), 2) as avg_job_value
+        FROM employees e
+        LEFT JOIN jobs j ON e.id = j.employee_id 
+        WHERE j.scheduled_date BETWEEN ? AND ? OR j.scheduled_date IS NULL
+        GROUP BY e.id, e.name, e.employment_type
+        ORDER BY completed_jobs DESC
+    ''', conn, params=[start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')])
+    
+    if not employee_metrics.empty:
+        # Performance overview
+        st.write("### 👤 Employee Performance")
+        
+        # Calculate completion rate
+        employee_metrics['completion_rate'] = (
+            employee_metrics['completed_jobs'] / 
+            employee_metrics['total_jobs'].replace(0, 1) * 100
+        ).round(2)
+        
+        # Display metrics
+        for _, emp in employee_metrics.iterrows():
+            with st.expander(f"📊 {emp['name']} ({emp['employment_type'].title()})"):
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                
+                with metric_col1:
+                    st.metric("Total Jobs", emp['total_jobs'])
+                    st.metric("Completed", emp['completed_jobs'])
+                
+                with metric_col2:
+                    st.metric("Completion Rate", f"{emp['completion_rate']:.1f}%")
+                    st.metric("Avg Duration", f"{emp['avg_duration']:.0f} min")
+                
+                with metric_col3:
+                    st.metric("Total Revenue", f"${emp['total_revenue']:.2f}")
+                    st.metric("Avg Job Value", f"${emp['avg_job_value']:.2f}")
+                
+                with metric_col4:
+                    # Performance rating
+                    if emp['completion_rate'] >= 90:
+                        rating = "⭐⭐⭐⭐⭐ Excellent"
+                    elif emp['completion_rate'] >= 80:
+                        rating = "⭐⭐⭐⭐ Very Good"
+                    elif emp['completion_rate'] >= 70:
+                        rating = "⭐⭐⭐ Good"
                     else:
-                        st.warning("No employees available. Please add employees first.")
-        else:
-            st.info("No unassigned jobs found")
+                        rating = "⭐⭐ Needs Improvement"
+                    
+                    st.write("**Performance Rating:**")
+                    st.write(rating)
+        
+        # Charts
+        st.write("### 📊 Visual Analytics")
+        
+        chart_col1, chart_col2 = st.columns(2)
+        
+        with chart_col1:
+            # Employee workload chart
+            fig_workload = px.bar(
+                employee_metrics,
+                x='name',
+                y='total_jobs',
+                title='Jobs by Employee',
+                color='employment_type'
+            )
+            st.plotly_chart(fig_workload, use_container_width=True)
+        
+        with chart_col2:
+            # Completion rate chart
+            fig_completion = px.bar(
+                employee_metrics,
+                x='name',
+                y='completion_rate',
+                title='Completion Rate by Employee (%)',
+                color='completion_rate',
+                color_continuous_scale='RdYlGn'
+            )
+            st.plotly_chart(fig_completion, use_container_width=True)
+    
+    # Job status overview
+    st.write("### 📋 Job Status Overview")
+    
+    status_metrics = pd.read_sql_query('''
+        SELECT status, COUNT(*) as count
+        FROM jobs
+        WHERE scheduled_date BETWEEN ? AND ?
+        GROUP BY status
+        ORDER BY count DESC
+    ''', conn, params=[start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')])
+    
+    if not status_metrics.empty:
+        fig_status = px.pie(
+            status_metrics,
+            values='count',
+            names='status',
+            title='Jobs by Status'
+        )
+        st.plotly_chart(fig_status, use_container_width=True)
 
 def show_scheduling():
     """Scheduling and calendar view"""

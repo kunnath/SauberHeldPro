@@ -589,6 +589,63 @@ def show_registration_form():
         </style>
         """, unsafe_allow_html=True)
         
+        # Enhanced next steps with maximum engagement
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #28a745;
+            margin: 30px 0;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        ">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="color: #28a745; margin: 0; font-size: 1.8rem;">🚀 <strong>Your Journey Starts Here!</strong> 🚀</h3>
+                <p style="color: #666; font-size: 16px; margin: 10px 0;">Follow these simple steps to book your first cleaning service:</p>
+            </div>
+            
+            <div style="display: grid; gap: 15px;">
+                <div style="display: flex; align-items: center; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #007bff;">
+                    <div style="font-size: 2rem; margin-right: 15px;">🔐</div>
+                    <div>
+                        <strong style="color: #007bff; font-size: 18px;">Step 1: Log In</strong>
+                        <p style="margin: 5px 0 0 0; color: #666;">Use your email and password to access your account</p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; align-items: center; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #28a745;">
+                    <div style="font-size: 2rem; margin-right: 15px;">🧹</div>
+                    <div>
+                        <strong style="color: #28a745; font-size: 18px;">Step 2: Browse Services</strong>
+                        <p style="margin: 5px 0 0 0; color: #666;">Explore our range of professional cleaning options</p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; align-items: center; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #ffc107;">
+                    <div style="font-size: 2rem; margin-right: 15px;">📅</div>
+                    <div>
+                        <strong style="color: #ffc107; font-size: 18px;">Step 3: Schedule Service</strong>
+                        <p style="margin: 5px 0 0 0; color: #666;">Pick your preferred date and time slot</p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; align-items: center; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #dc3545;">
+                    <div style="font-size: 2rem; margin-right: 15px;">✨</div>
+                    <div>
+                        <strong style="color: #dc3545; font-size: 18px;">Step 4: Enjoy!</strong>
+                        <p style="margin: 5px 0 0 0; color: #666;">Relax while we make your space sparkle!</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px; padding: 20px; background: linear-gradient(90deg, #ff9a9e, #fecfef); border-radius: 10px;">
+                <p style="margin: 0; color: white; font-weight: bold; font-size: 16px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
+                    🎁 <strong>BONUS:</strong> First-time customers get 10% off their first booking! 🎁
+                </p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Add clear login instructions for the newly registered user
         if 'new_customer_email' in st.session_state:
             st.markdown(f"""
@@ -645,6 +702,33 @@ def show_registration_form():
             if st.button("📱 Download Our App", use_container_width=True):
                 st.info("📲 **Mobile app coming soon!** We'll notify you when it's ready!")
         
+        # Add multiple motivational quotes
+        quotes = [
+            "A clean home is a happy home, and we're here to make yours sparkle! ✨",
+            "Life's too short to spend it cleaning - let us handle the dirty work! 🧽",
+            "Your satisfaction is our success - welcome to the family! 💫",
+            "Every clean space tells a story of care and attention to detail! 🏠",
+            "We don't just clean, we create spaces where memories are made! 💝"
+        ]
+        
+        import random
+        selected_quote = random.choice(quotes)
+        
+        st.markdown(f"""
+        <div style="
+            text-align: center; 
+            margin: 30px 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea, #764ba2); 
+            border-radius: 15px; 
+            color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        ">
+            <h4 style="margin: 0 0 10px 0; color: white;">💬 <strong>Words of Wisdom</strong> 💬</h4>
+            <p style="margin: 0; font-style: italic; font-size: 16px; line-height: 1.5;">"{selected_quote}"</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Add button to dismiss success message and show registration form again
         if st.button("📝 Register Another Account", use_container_width=True):
             st.session_state.registration_success = False
@@ -656,8 +740,8 @@ def show_registration_form():
     # Show simple registration form
     st.markdown("### 📝 Fill out the form below to create your account:")
     
-    # Simple registration form
-    with st.form("simple_registration_form", clear_on_submit=True):
+    # Simple registration form without complex validation preview
+    with st.form("simple_registration_form", clear_on_submit=False):
         
         # Personal Information Section
         col1, col2 = st.columns(2)
@@ -699,39 +783,24 @@ def show_registration_form():
             height=80
         )
         
-        # Terms checkbox
-        terms = st.checkbox("I agree to Terms & Conditions *")
-        
-        # Submit button - THIS DEFINES THE submitted VARIABLE
-        submitted = st.form_submit_button("🚀 **CREATE ACCOUNT**", use_container_width=True, type="primary")
-        
+        # Submit button
         if submitted:
-            # Simple validation using list of errors
-            errors = []
+            # Simple validation - check required fields
+            if not all([first_name, last_name, email, phone, password, confirm_password, address]):
+                st.error("❌ **Please fill in all required fields**")
+                return
             
-            if not first_name or not first_name.strip():
-                errors.append("First Name required")
-            if not last_name or not last_name.strip():
-                errors.append("Last Name required")
-            if not email or not email.strip():
-                errors.append("Email required")
-            elif not validate_email(email.strip()):
-                errors.append("Valid email format required")
-            if not phone or not phone.strip():
-                errors.append("Phone number required")
-            if not password or len(password) < 6:
-                errors.append("Password must be at least 6 characters")
+            # Basic validation
+            if len(password) < 6:
+                st.error("❌ **Password must be at least 6 characters long**")
+                return
+                
             if password != confirm_password:
-                errors.append("Passwords must match")
-            if not address or len(address.strip()) < 10:
-                errors.append("Complete address required (minimum 10 characters)")
-            if not terms:
-                errors.append("Must accept terms & conditions")
-            
-            if errors:
-                st.error("❌ **Please fix these issues:**")
-                for error in errors:
-                    st.error(f"• {error}")
+                st.error("❌ **Passwords do not match**")
+                return
+                
+            if not validate_email(email.strip()):
+                st.error("❌ **Please enter a valid email address**")
                 return
             
             # Check if email already exists
@@ -783,6 +852,287 @@ def show_registration_form():
                         'email': email.strip(),
                         'error_type': 'registration_error'
                     })
+                    'address': 'Service Address'
+                }
+                missing = [field_names[field] for field in empty_fields]
+                validation_errors.append(f"❌ **Missing Required Fields**: {', '.join(missing)}")
+            
+            # Individual field validation with specific feedback
+            if first_name:
+                if len(first_name.strip()) < 2:
+                    validation_errors.append("❌ **First Name**: Must be at least 2 characters long")
+                elif len(first_name.strip()) > 50:
+                    validation_errors.append("❌ **First Name**: Must be less than 50 characters")
+                elif not first_name.strip().replace(' ', '').replace('-', '').replace("'", '').isalpha():
+                    warnings.append("⚠️ **First Name**: Contains unusual characters")
+                    
+            if last_name:
+                if len(last_name.strip()) < 2:
+                    validation_errors.append("❌ **Last Name**: Must be at least 2 characters long")
+                elif len(last_name.strip()) > 50:
+                    validation_errors.append("❌ **Last Name**: Must be less than 50 characters")
+                elif not last_name.strip().replace(' ', '').replace('-', '').replace("'", '').isalpha():
+                    warnings.append("⚠️ **Last Name**: Contains unusual characters")
+            
+            if email:
+                if not validate_email(email.strip()):
+                    validation_errors.append("❌ **Email Address**: Invalid format (example: name@domain.com)")
+                elif len(email.strip()) > 100:
+                    validation_errors.append("❌ **Email Address**: Too long (maximum 100 characters)")
+            
+            if phone:
+                if not validate_phone(phone.strip()):
+                    validation_errors.append("❌ **Phone Number**: Invalid format (minimum 10 digits, e.g., +1-555-123-4567)")
+            
+            if password:
+                if len(password) < 6:
+                    validation_errors.append("❌ **Password**: Must be at least 6 characters long")
+                elif len(password) > 128:
+                    validation_errors.append("❌ **Password**: Too long (maximum 128 characters)")
+                else:
+                    # Password strength suggestions
+                    if len(password) < 8:
+                        warnings.append("⚠️ **Password**: Consider using 8+ characters for better security")
+                    if password.isdigit():
+                        warnings.append("⚠️ **Password**: Consider adding letters for better security")
+                    if password.isalpha():
+                        warnings.append("⚠️ **Password**: Consider adding numbers for better security")
+                
+            if password and confirm_password:
+                if password != confirm_password:
+                    validation_errors.append("❌ **Password Confirmation**: Passwords do not match exactly")
+            elif confirm_password:
+                validation_errors.append("❌ **Password**: Please enter your password first")
+            
+            if address:
+                if len(address.strip()) < 10:
+                    validation_errors.append("❌ **Service Address**: Please provide a complete address (minimum 10 characters)")
+                elif len(address.strip()) > 500:
+                    validation_errors.append("❌ **Service Address**: Address is too long (maximum 500 characters)")
+                # Check for basic address components
+                address_lower = address.lower()
+                has_number = any(char.isdigit() for char in address)
+                if not has_number:
+                    warnings.append("⚠️ **Service Address**: Consider including a street number")
+            
+            # Terms acceptance check
+            if not terms_accepted:
+                validation_errors.append("❌ **Terms & Conditions**: You must accept the terms to create an account")
+            
+            # Show validation results
+            if validation_errors:
+                st.error("**❌ Please fix the following issues before proceeding:**")
+                for error in validation_errors:
+                    st.error(error)
+                
+                if warnings:
+                    st.warning("**⚠️ Additional Recommendations:**")
+                    for warning in warnings:
+                        st.warning(warning)
+                
+                st.markdown("""
+                <div style="
+                    background: #FFF3E0;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border-left: 4px solid #FF9800;
+                    margin: 15px 0;
+                ">
+                    <strong>🔄 What to do next:</strong>
+                    <ol style="margin: 10px 0 0 0;">
+                        <li>Review and fix the errors marked with ❌</li>
+                        <li>Consider the recommendations marked with ⚠️</li>
+                        <li>Click "Create My Account" again</li>
+                    </ol>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                return
+            
+            # Show warnings but allow registration to proceed
+            if warnings:
+                st.warning("**⚠️ Registration will proceed with these recommendations:**")
+                for warning in warnings:
+                    st.warning(warning)
+                st.info("💡 **Tip**: You can still register, but consider these suggestions for better security and accuracy.")
+                
+            # All validations passed - now check email availability
+            st.success("✅ **Form validation passed!** Checking email availability...")
+            
+            # Check if email already exists in database
+            try:
+                email_exists = check_email_exists(email.strip())
+                
+                if email_exists:
+                    # Email already exists - show detailed error message
+                    st.error("❌ **Registration Failed - Email Already Registered**")
+                    st.markdown(f"""
+                    <div style="
+                        background: #FFEBEE;
+                        padding: 25px;
+                        border-radius: 15px;
+                        border-left: 5px solid #F44336;
+                        margin: 20px 0;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    ">
+                        <h4 style="margin: 0 0 15px 0; color: #C62828;">📧 Email Already in Use</h4>
+                        <p style="margin: 0 0 15px 0; color: #555;">
+                            <strong>The email address <code>{email.strip()}</code> is already registered in our system.</strong>
+                        </p>
+                        
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                            <h5 style="margin: 0 0 10px 0; color: #C62828;">🔧 What you can do:</h5>
+                            <ul style="margin: 0; color: #555;">
+                                <li><strong>🔐 Log in instead:</strong> If this is your email, use the "Login" tab below</li>
+                                <li><strong>📧 Use different email:</strong> Try registering with another email address</li>
+                                <li><strong>🔒 Reset password:</strong> If you forgot your password, contact our support</li>
+                                <li><strong>📞 Need help?</strong> Contact support if you believe this is an error</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: linear-gradient(90deg, #E3F2FD, #F3E5F5); padding: 12px; border-radius: 8px; margin: 15px 0;">
+                            <strong>💡 Quick tip:</strong> If you already have an account, just log in using the credentials you created before.
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Add quick action buttons
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🔐 **Go to Login Tab**", use_container_width=True, type="primary"):
+                            st.session_state.active_tab = 0  # Switch to login tab
+                            # Pre-fill the login email
+                            st.session_state.login_email = email.strip()
+                            st.success(f"✅ **Redirecting to login...** Your email ({email.strip()}) has been pre-filled!")
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("📧 **Use Different Email**", use_container_width=True):
+                            # Clear the email field to encourage using a different email
+                            if 'reg_email' in st.session_state:
+                                st.session_state.reg_email = ""
+                            st.info("✍️ **Please enter a different email address above and try again.**")
+                            st.rerun()
+                    
+                    return  # Stop processing registration
+                
+                # Email is available - proceed with registration
+                st.success(f"✅ **Email available!** Proceeding with registration for {email.strip()}")
+                
+            except Exception as e:
+                st.warning("⚠️ **Could not verify email availability.** Proceeding with registration attempt...")
+                log_error('customer_portal', e, {
+                    'email': email.strip(),
+                    'error_type': 'email_check_failed',
+                    'error_message': str(e)
+                })
+            
+            # Proceed with actual registration
+            with st.spinner("🔄 **Creating your account...** Please wait a moment."):
+                import time
+                time.sleep(1)  # Brief pause for better UX
+                
+                # Register customer
+                try:
+                    registration_result = register_customer(
+                        email.strip(), 
+                        password, 
+                        first_name.strip(), 
+                        last_name.strip(), 
+                        phone.strip(), 
+                        address.strip()
+                    )
+                    
+                    if registration_result:
+                        # Log successful registration
+                        log_user_action('customer_portal', 'customer_registration_success', {
+                            'email': email.strip(),
+                            'first_name': first_name.strip(),
+                            'last_name': last_name.strip(),
+                            'phone': phone.strip()
+                        })
+                        
+                        # Set success state and trigger celebration
+                        st.session_state.registration_success = True
+                        st.session_state.registration_just_completed = True
+                        st.session_state.new_customer_name = first_name.strip()
+                        st.session_state.new_customer_email = email.strip()  # Store registered email
+                        st.session_state.show_validation_preview = False
+                        
+                        # Clear form fields after successful registration to avoid interference
+                        for key in ['reg_first_name', 'reg_last_name', 'reg_email', 'reg_phone', 
+                                   'reg_password', 'reg_confirm_password', 'reg_address', 'reg_terms']:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        
+                        # Show immediate success feedback
+                        st.success(f"🎉 **REGISTRATION SUCCESSFUL!** Welcome to Aufraumenbee, {first_name}!")
+                        st.balloons()  # Add celebration
+                        st.info("🔄 **Preparing your celebration page...** This will just take a moment!")
+                        
+                        # Force immediate rerun to show celebration page
+                        st.rerun()
+                        
+                    else:
+                        # Registration failed for unknown reason
+                        st.error("❌ **Registration Failed - Unexpected Error**")
+                        st.markdown("""
+                        <div style="
+                            background: #FFEBEE;
+                            padding: 20px;
+                            border-radius: 10px;
+                            border-left: 4px solid #F44336;
+                            margin: 15px 0;
+                        ">
+                            <h4 style="margin: 0 0 10px 0; color: #C62828;">� Something went wrong</h4>
+                            <p style="margin: 0 0 10px 0; color: #555;">The registration could not be completed for an unknown reason.</p>
+                            
+                            <h5 style="margin: 15px 0 10px 0; color: #C62828;">🔧 What to try:</h5>
+                            <ul style="margin: 0; color: #555;">
+                                <li><strong>� Try again:</strong> The issue might be temporary</li>
+                                <li><strong>� Check your email:</strong> Make sure it's not already registered</li>
+                                <li><strong>🌐 Check connection:</strong> Ensure you have a stable internet connection</li>
+                                <li><strong>📞 Contact support:</strong> If the problem persists, we're here to help</li>
+                            </ul>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                except Exception as e:
+                    # Handle unexpected errors
+                    st.error("❌ **Unexpected Error During Registration**")
+                    
+                    error_details = str(e)
+                    st.markdown(f"""
+                    <div style="
+                        background: #FFEBEE;
+                        padding: 20px;
+                        border-radius: 10px;
+                        border-left: 4px solid #F44336;
+                        margin: 15px 0;
+                    ">
+                        <h4 style="margin: 0 0 10px 0; color: #C62828;">🚨 Something went wrong</h4>
+                        <p style="margin: 0 0 10px 0; color: #555;"><strong>Error details:</strong> {error_details}</p>
+                        
+                        <h5 style="margin: 15px 0 10px 0; color: #C62828;">� What to try:</h5>
+                        <ul style="margin: 0; color: #555;">
+                            <li><strong>🔄 Try again:</strong> The issue might be temporary</li>
+                            <li><strong>📧 Check your email:</strong> Make sure it's not already registered</li>
+                            <li><strong>🌐 Check connection:</strong> Ensure you have a stable internet connection</li>
+                            <li><strong>📞 Contact support:</strong> If the problem persists, we're here to help</li>
+                        </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Log the error for debugging
+                    log_error('customer_portal', e, {
+                        'email': email.strip() if email else 'unknown',
+                        'error_type': 'registration_exception',
+                        'error_message': str(e),
+                        'first_name': first_name.strip() if first_name else 'unknown'
+                    })
+                    
+                    if st.button("🔄 Try Registration Again", use_container_width=True, type="primary"):
+                        st.rerun()
 
 def show_login_form():
     """Show customer login form with enhanced flow for newly registered users"""
@@ -1164,6 +1514,14 @@ def main():
     
     # Navigation
     if not st.session_state.customer_logged_in:
+        # DEBUG: Show session state for registration debugging
+        if st.session_state.get('registration_success', False) or st.session_state.get('registration_just_completed', False):
+            st.sidebar.write("🔍 **Debug Session State:**")
+            st.sidebar.write(f"registration_success: {st.session_state.get('registration_success', 'NOT SET')}")
+            st.sidebar.write(f"registration_just_completed: {st.session_state.get('registration_just_completed', 'NOT SET')}")
+            st.sidebar.write(f"new_customer_name: {st.session_state.get('new_customer_name', 'NOT SET')}")
+            st.sidebar.write(f"new_customer_email: {st.session_state.get('new_customer_email', 'NOT SET')}")
+        
         # If registration was successful, show special welcome header and success message
         if st.session_state.get('registration_success', False):
             # Special celebratory header for successful registration
