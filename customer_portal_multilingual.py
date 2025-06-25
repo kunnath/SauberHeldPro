@@ -233,20 +233,44 @@ def authenticate_customer(email: str, password: str) -> Optional[Dict]:
 def get_available_services(language: str = 'en') -> List[Dict]:
     """Get available services in the specified language"""
     conn = init_database()
-    services = pd.read_sql_query('SELECT * FROM service_types', conn)
+    services = pd.read_sql_query('SELECT * FROM service_types WHERE active = 1', conn)
     conn.close()
     
     service_list = []
     for _, service in services.iterrows():
-        name_col = f'name_{language}' if f'name_{language}' in service else 'name_en'
-        desc_col = f'description_{language}' if f'description_{language}' in service else 'description_en'
+        # Handle multilingual names with fallback
+        name_col = f'name_{language}'
+        desc_col = f'description_{language}'
+        
+        # Get name with fallback logic
+        if name_col in service.index and service[name_col] and pd.notna(service[name_col]):
+            name = service[name_col]
+        elif 'name_en' in service.index and service['name_en'] and pd.notna(service['name_en']):
+            name = service['name_en']
+        elif 'name' in service.index and service['name'] and pd.notna(service['name']):
+            name = service['name']
+        else:
+            name = f"Service {service['id']}"
+        
+        # Get description with fallback logic
+        if desc_col in service.index and service[desc_col] and pd.notna(service[desc_col]):
+            description = service[desc_col]
+        elif 'description_en' in service.index and service['description_en'] and pd.notna(service['description_en']):
+            description = service['description_en']
+        elif 'description' in service.index and service['description'] and pd.notna(service['description']):
+            description = service['description']
+        else:
+            description = "Service description"
+        
+        # Get duration with fallback
+        duration = service.get('duration_hours', service.get('duration_minutes', 120) // 60 if 'duration_minutes' in service else 2)
         
         service_list.append({
             'id': service['id'],
-            'name': service[name_col],
-            'description': service[desc_col],
+            'name': name,
+            'description': description,
             'price': service['base_price'],
-            'duration': service['duration_hours']
+            'duration': duration
         })
     
     return service_list
@@ -443,18 +467,26 @@ def show_services_booking():
                     conn = init_database()
                     cursor = conn.cursor()
                     
+                    # Calculate end time based on service duration
+                    start_dt = datetime.strptime(service_time, '%H:%M')
+                    duration_hours = service.get('duration', 2)  # Default 2 hours
+                    end_dt = start_dt + timedelta(hours=duration_hours)
+                    end_time = end_dt.strftime('%H:%M')
+                    
                     cursor.execute('''
                         INSERT INTO customer_bookings 
-                        (customer_user_id, service_type, service_date, service_time, address, special_instructions, total_price)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (customer_user_id, service_type_id, date, start_time, end_time, address, special_instructions, total_price, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         st.session_state.customer_data['id'],
-                        service['name'],
+                        service['id'],  # Use service ID instead of name
                         service_date.isoformat(),
                         service_time,
+                        end_time,
                         booking_address,
                         special_instructions,
-                        service['price']
+                        service['price'],
+                        'pending'  # Set initial status
                     ))
                     
                     conn.commit()
@@ -492,32 +524,44 @@ def show_customer_dashboard():
     with tab2:
         st.subheader(t('my_bookings', current_lang))
         
-        # Get customer bookings
+        # Get customer bookings with service details
         conn = init_database()
         bookings = pd.read_sql_query('''
-            SELECT * FROM customer_bookings 
-            WHERE customer_user_id = ? 
-            ORDER BY created_at DESC
+            SELECT cb.*, st.name_en, st.name_de, st.name as service_name
+            FROM customer_bookings cb
+            LEFT JOIN service_types st ON cb.service_type_id = st.id
+            WHERE cb.customer_user_id = ? 
+            ORDER BY cb.created_at DESC
         ''', conn, params=(customer['id'],))
         conn.close()
         
         if not bookings.empty:
             for _, booking in bookings.iterrows():
-                with st.expander(f"{booking['service_type']} - {format_date(datetime.strptime(booking['service_date'], '%Y-%m-%d').date(), current_lang)}"):
+                # Get service name in current language
+                if current_lang == 'de' and booking.get('name_de'):
+                    service_name = booking['name_de']
+                elif booking.get('name_en'):
+                    service_name = booking['name_en']
+                else:
+                    service_name = booking.get('service_name', f"Service {booking['service_type_id']}")
+                
+                with st.expander(f"{service_name} - {format_date(datetime.strptime(booking['date'], '%Y-%m-%d').date(), current_lang)}"):
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        st.write(f"**{t('date', current_lang) if 'date' in st.session_state.get('translations', {}) else 'Date'}:** {format_date(datetime.strptime(booking['service_date'], '%Y-%m-%d').date(), current_lang)}")
-                        st.write(f"**{t('time', current_lang) if 'time' in st.session_state.get('translations', {}) else 'Time'}:** {booking['service_time']}")
+                        st.write(f"**{t('date', current_lang)}:** {format_date(datetime.strptime(booking['date'], '%Y-%m-%d').date(), current_lang)}")
+                        st.write(f"**{t('time', current_lang)}:** {booking['start_time']}")
                         st.write(f"**{t('address', current_lang)}:** {booking['address']}")
                     
                     with col2:
                         status_color = {"pending": "🟡", "confirmed": "🟢", "completed": "🔵", "cancelled": "🔴"}
-                        st.write(f"**Status:** {status_color.get(booking['status'], '⚪')} {t(booking['status'], current_lang)}")
+                        status = booking.get('status', 'pending')
+                        st.write(f"**Status:** {status_color.get(status, '⚪')} {t(status, current_lang)}")
                         st.write(f"**{t('total', current_lang)}:** {format_currency(booking['total_price'], current_lang)}")
-                        st.write(f"**{t('booked_on', current_lang) if 'booked_on' in st.session_state.get('translations', {}) else 'Booked on'}:** {format_date(datetime.strptime(booking['created_at'], '%Y-%m-%d %H:%M:%S').date(), current_lang)}")
+                        if booking.get('created_at'):
+                            st.write(f"**{t('booked_on', current_lang)}:** {format_date(datetime.strptime(booking['created_at'], '%Y-%m-%d %H:%M:%S').date(), current_lang)}")
                     
-                    if booking['special_instructions']:
+                    if booking.get('special_instructions'):
                         st.write(f"**{t('special_instructions', current_lang)}:** {booking['special_instructions']}")
         else:
             st.info(t('no_bookings_yet', current_lang) if 'no_bookings_yet' in st.session_state.get('translations', {}) else "No bookings yet. Book your first cleaning service!")
