@@ -10,6 +10,13 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
 import re
+import random
+import string
+import hashlib
+import time
+import random
+import string
+import hashlib
 
 # Import translation system
 from translations import t, init_language_selector, get_current_language, format_currency, format_date, format_time
@@ -134,6 +141,18 @@ def init_database():
             total_price REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_user_id) REFERENCES customer_users (id)
+        )
+    ''')
+    
+    # Password reset codes table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS password_reset_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            reset_code TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            used BOOLEAN DEFAULT FALSE
         )
     ''')
     
@@ -360,6 +379,11 @@ def show_login_form():
     """Show customer login form with multilingual support"""
     current_lang = get_current_language()
     
+    # Check if we should show password reset form
+    if 'show_password_reset' in st.session_state and st.session_state.show_password_reset:
+        show_password_reset_form()
+        return
+    
     st.markdown(f"### 🔐 {t('login', current_lang)}")
     
     with st.form("customer_login"):
@@ -372,15 +396,25 @@ def show_login_form():
             type="password"
         )
         
-        if st.form_submit_button(t('login', current_lang), use_container_width=True):
-            user = authenticate_customer(email, password)
-            if user:
-                st.session_state.customer_logged_in = True
-                st.session_state.customer_data = user
-                st.success(t('login_success', current_lang))
-                st.rerun()
-            else:
-                st.error(t('login_failed', current_lang))
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            if st.form_submit_button(t('login', current_lang), use_container_width=True):
+                user = authenticate_customer(email, password)
+                if user:
+                    st.session_state.customer_logged_in = True
+                    st.session_state.customer_data = user
+                    st.success(t('login_success', current_lang))
+                    st.rerun()
+                else:
+                    st.error(t('login_failed', current_lang))
+    
+    # Forgot password link
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button(f"🔑 {t('forgot_password', current_lang)}", use_container_width=True):
+            st.session_state.show_password_reset = True
+            st.session_state.reset_step = 1
+            st.rerun()
 
 def show_services_booking():
     """Show services and booking interface with multilingual support"""
@@ -619,6 +653,215 @@ def show_customer_dashboard():
                     
                 except Exception:
                     st.error(t('update_failed', current_lang) if 'update_failed' in st.session_state.get('translations', {}) else "Update failed. Please try again.")
+
+def generate_reset_code() -> str:
+    """Generate a 6-digit reset code"""
+    return ''.join(random.choices(string.digits, k=6))
+
+def send_reset_code(email: str) -> bool:
+    """Generate and store reset code for email (simulated email sending)"""
+    try:
+        conn = init_database()
+        cursor = conn.cursor()
+        
+        # Check if user exists
+        cursor.execute('SELECT id FROM customer_users WHERE email = ?', (email,))
+        user = cursor.fetchone()
+        
+        if not user:
+            conn.close()
+            return False
+        
+        # Generate reset code
+        reset_code = generate_reset_code()
+        
+        # Set expiration time (15 minutes from now)
+        expires_at = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Clean up old codes for this email
+        cursor.execute('DELETE FROM password_reset_codes WHERE email = ? OR expires_at < datetime("now")', (email,))
+        
+        # Insert new reset code
+        cursor.execute('''
+            INSERT INTO password_reset_codes (email, reset_code, expires_at)
+            VALUES (?, ?, ?)
+        ''', (email, reset_code, expires_at))
+        
+        conn.commit()
+        conn.close()
+        
+        # In a real application, you would send the code via email
+        # For demo purposes, we'll store it in session state
+        st.session_state.demo_reset_code = reset_code
+        st.session_state.demo_reset_email = email
+        
+        return True
+        
+    except Exception as e:
+        return False
+
+def verify_reset_code(email: str, reset_code: str) -> bool:
+    """Verify if the reset code is valid and not expired"""
+    try:
+        conn = init_database()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id FROM password_reset_codes 
+            WHERE email = ? AND reset_code = ? AND expires_at > datetime("now") AND used = FALSE
+        ''', (email, reset_code))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result is not None
+        
+    except Exception:
+        return False
+
+def reset_customer_password(email: str, reset_code: str, new_password: str) -> bool:
+    """Reset customer password using valid reset code"""
+    try:
+        conn = init_database()
+        cursor = conn.cursor()
+        
+        # Verify reset code is valid
+        cursor.execute('''
+            SELECT id FROM password_reset_codes 
+            WHERE email = ? AND reset_code = ? AND expires_at > datetime("now") AND used = FALSE
+        ''', (email, reset_code))
+        
+        reset_record = cursor.fetchone()
+        
+        if not reset_record:
+            conn.close()
+            return False
+        
+        # Hash new password
+        password_hash = hash_password(new_password)
+        
+        # Update customer password
+        cursor.execute('''
+            UPDATE customer_users SET password_hash = ? WHERE email = ?
+        ''', (password_hash, email))
+        
+        # Mark reset code as used
+        cursor.execute('''
+            UPDATE password_reset_codes SET used = TRUE WHERE id = ?
+        ''', (reset_record[0],))
+        
+        conn.commit()
+        conn.close()
+        
+        # Clear demo session state
+        if 'demo_reset_code' in st.session_state:
+            del st.session_state.demo_reset_code
+        if 'demo_reset_email' in st.session_state:
+            del st.session_state.demo_reset_email
+        
+        return True
+        
+    except Exception:
+        return False
+
+def show_password_reset_form():
+    """Show password reset form"""
+    current_lang = get_current_language()
+    
+    st.markdown(f"### 🔐 {t('reset_password_title', current_lang)}")
+    
+    # Step 1: Request reset code
+    if 'reset_step' not in st.session_state:
+        st.session_state.reset_step = 1
+    
+    if st.session_state.reset_step == 1:
+        st.info(t('reset_instructions', current_lang))
+        
+        with st.form("request_reset_code"):
+            email = st.text_input(
+                f"📧 {t('email', current_lang)}",
+                placeholder="your@email.com"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button(t('send_reset_code', current_lang), use_container_width=True):
+                    if email and '@' in email:
+                        if send_reset_code(email):
+                            st.session_state.reset_email = email
+                            st.session_state.reset_step = 2
+                            st.success(t('reset_code_sent', current_lang))
+                            st.rerun()
+                        else:
+                            st.error(t('invalid_email', current_lang))
+                    else:
+                        st.error(t('invalid_email', current_lang))
+            
+            with col2:
+                if st.form_submit_button(t('back_to_login', current_lang), use_container_width=True):
+                    st.session_state.show_password_reset = False
+                    st.session_state.reset_step = 1
+                    if 'reset_email' in st.session_state:
+                        del st.session_state.reset_email
+                    st.rerun()
+    
+    # Step 2: Enter reset code and new password
+    elif st.session_state.reset_step == 2:
+        st.success(t('reset_code_sent', current_lang))
+        st.info(t('reset_code_instructions', current_lang))
+        
+        # Show demo code for testing
+        if 'demo_reset_code' in st.session_state:
+            st.info(f"🔧 **Demo Code**: {st.session_state.demo_reset_code}")
+        
+        with st.form("reset_password"):
+            reset_code = st.text_input(
+                f"🔐 {t('reset_code', current_lang)}",
+                placeholder="000000",
+                help=t('enter_reset_code', current_lang)
+            )
+            
+            new_password = st.text_input(
+                f"🔒 {t('new_password', current_lang)}",
+                type="password"
+            )
+            
+            confirm_password = st.text_input(
+                f"🔒 {t('confirm_new_password', current_lang)}",
+                type="password"
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button(t('reset_password', current_lang), use_container_width=True):
+                    if not all([reset_code, new_password, confirm_password]):
+                        st.error(t('required_fields_missing', current_lang))
+                    elif len(new_password) < 6:
+                        st.error(t('password_too_short', current_lang))
+                    elif new_password != confirm_password:
+                        st.error(t('password_mismatch', current_lang))
+                    elif not verify_reset_code(st.session_state.reset_email, reset_code):
+                        st.error(t('invalid_reset_code', current_lang))
+                    else:
+                        if reset_customer_password(st.session_state.reset_email, reset_code, new_password):
+                            st.success(t('password_reset_success', current_lang))
+                            st.session_state.show_password_reset = False
+                            st.session_state.reset_step = 1
+                            if 'reset_email' in st.session_state:
+                                del st.session_state.reset_email
+                            st.balloons()
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(t('password_reset_failed', current_lang))
+            
+            with col2:
+                if st.form_submit_button(t('back_to_login', current_lang), use_container_width=True):
+                    st.session_state.show_password_reset = False
+                    st.session_state.reset_step = 1
+                    if 'reset_email' in st.session_state:
+                        del st.session_state.reset_email
+                    st.rerun()
 
 def main():
     """Main application with multilingual support"""
