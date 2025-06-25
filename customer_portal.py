@@ -264,10 +264,18 @@ def register_customer(email: str, password: str, first_name: str, last_name: str
         # Hash password and insert new user
         password_hash = hash_password(password)
         
+        # Insert into customer_users table (for portal login)
         cursor.execute('''
             INSERT INTO customer_users (email, password_hash, first_name, last_name, phone, address)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (email, password_hash, first_name, last_name, phone, address))
+        
+        # Also insert into customers table (for admin management)
+        full_name = f"{first_name} {last_name}".strip()
+        cursor.execute('''
+            INSERT INTO customers (name, email, phone, address, preferences)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (full_name, email, phone, address, "Registered via customer portal"))
         
         conn.commit()
         

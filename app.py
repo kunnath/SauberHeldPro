@@ -362,8 +362,11 @@ def show_dashboard():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        total_customers = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
-        st.metric("Total Customers", total_customers)
+        # Count customers from both tables
+        manual_customers = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
+        portal_customers = conn.execute("SELECT COUNT(*) FROM customer_users").fetchone()[0]
+        total_customers = manual_customers + portal_customers
+        st.metric("Total Customers", total_customers, help=f"Manual: {manual_customers}, Portal: {portal_customers}")
     
     with col2:
         total_employees = conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0]
@@ -405,27 +408,67 @@ def show_customer_management():
     conn = init_database()
     
     with tab1:
-        customers = pd.read_sql_query("SELECT * FROM customers ORDER BY created_at DESC", conn)
+        # Get customers from both tables using UNION
+        customers_query = """
+        SELECT 
+            id,
+            name,
+            email,
+            phone,
+            address,
+            preferences,
+            rating,
+            total_jobs,
+            created_at,
+            'Manual' as source
+        FROM customers
+        UNION ALL
+        SELECT 
+            id,
+            first_name || ' ' || last_name as name,
+            email,
+            phone,
+            address,
+            'Registered via customer portal' as preferences,
+            0 as rating,
+            0 as total_jobs,
+            created_at,
+            'Portal Registration' as source
+        FROM customer_users
+        ORDER BY created_at DESC
+        """
+        
+        customers = pd.read_sql_query(customers_query, conn)
         
         if not customers.empty:
             # Search functionality
-            search_term = st.text_input("Search customers...")
+            search_term = st.text_input("Search customers by name or email...")
             if search_term:
-                customers = customers[customers['name'].str.contains(search_term, case=False, na=False)]
+                customers = customers[
+                    (customers['name'].str.contains(search_term, case=False, na=False)) |
+                    (customers['email'].str.contains(search_term, case=False, na=False))
+                ]
+            
+            # Display total count
+            st.info(f"📊 Total customers: {len(customers)} (from both admin and portal registrations)")
             
             # Display customers
             for _, customer in customers.iterrows():
-                with st.expander(f"{customer['name']} - {customer['email']}"):
+                # Add source indicator in the title
+                source_icon = "🌐" if customer['source'] == 'Portal Registration' else "👤"
+                with st.expander(f"{source_icon} {customer['name']} - {customer['email']} ({customer['source']})"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.write(f"**Phone:** {customer['phone']}")
-                        st.write(f"**Address:** {customer['address']}")
+                        st.write(f"**Phone:** {customer['phone'] if customer['phone'] else 'Not provided'}")
+                        st.write(f"**Address:** {customer['address'] if customer['address'] else 'Not provided'}")
                         st.write(f"**Total Jobs:** {customer['total_jobs']}")
+                        st.write(f"**Source:** {customer['source']}")
                     with col2:
                         st.write(f"**Rating:** ⭐ {customer['rating']:.1f}")
                         st.write(f"**Joined:** {customer['created_at']}")
+                        st.write(f"**Preferences:** {customer['preferences'] if customer['preferences'] else 'None'}")
                         
-                        if st.button(f"View Details", key=f"customer_{customer['id']}"):
+                        if st.button(f"View Details", key=f"customer_{customer['source']}_{customer['id']}"):
                             st.session_state.selected_customer = customer['id']
         else:
             st.info("No customers found")
