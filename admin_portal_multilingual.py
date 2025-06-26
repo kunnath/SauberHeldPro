@@ -15,6 +15,13 @@ import plotly.graph_objects as go
 # Import translation system
 from translations import t, init_language_selector, get_current_language, format_currency, format_date
 
+# Database configuration
+DB_PATH = 'cleaning-service-app/backend/data/cleaning_service.db'
+
+def get_db_connection():
+    """Get a database connection with consistent configuration"""
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
+
 # Page configuration
 st.set_page_config(
     page_title="Aufraumenbee - Admin Portal",
@@ -57,7 +64,7 @@ st.markdown("""
 
 def init_database():
     """Initialize the database with all required tables"""
-    conn = sqlite3.connect('aufraumenbee.db', check_same_thread=False)
+    conn = get_db_connection()
     
     # Admin users table
     conn.execute('''
@@ -126,21 +133,6 @@ def init_database():
     except sqlite3.OperationalError:
         pass  # Column already exists
     
-    # Migrate data from skills to specialties if needed
-    try:
-        # Check if skills column exists and specialties is empty
-        result = conn.execute("PRAGMA table_info(employees)").fetchall()
-        column_names = [col[1] for col in result]
-        
-        if 'skills' in column_names:
-            conn.execute('''
-                UPDATE employees 
-                SET specialties = COALESCE(specialties, skills) 
-                WHERE (specialties IS NULL OR specialties = '') AND skills IS NOT NULL
-            ''')
-    except sqlite3.OperationalError:
-        pass  # Migration not needed
-    
     # Update NULL status values to 'active'
     conn.execute('UPDATE employees SET status = "active" WHERE status IS NULL OR status = ""')
     conn.commit()
@@ -166,18 +158,88 @@ def init_database():
         )
     ''')
     
-    # Service types table
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS service_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name_en TEXT NOT NULL,
-            name_de TEXT NOT NULL,
-            description_en TEXT,
-            description_de TEXT,
-            base_price REAL,
-            duration_hours INTEGER DEFAULT 2
-        )
-    ''')
+    # Note: service_types table already exists from React backend
+    # The React backend uses: id, name, description, base_price, duration_minutes, category, features, is_active, created_at
+    # No need to create a separate admin service_types table
+    
+    # Create a view to map React backend's bookings table to admin portal's jobs table format
+    # This allows the admin portal to view bookings made through the React frontend
+    try:
+        conn.execute('''
+            CREATE VIEW IF NOT EXISTS jobs AS
+            SELECT 
+                b.id,
+                b.user_id as customer_id,
+                b.cleaner_id as employee_id,
+                st.name as title,
+                b.special_instructions as description,
+                b.service_date as scheduled_date,
+                b.service_time as scheduled_time,
+                b.estimated_duration as duration,
+                b.status,
+                st.name as service_type,
+                b.address as location,
+                b.total_price as price,
+                b.created_at
+            FROM bookings b
+            LEFT JOIN service_types st ON b.service_type_id = st.id
+            LEFT JOIN users u ON b.user_id = u.id
+        ''')
+        
+        # Create a view to map React users to admin portal customers format
+        conn.execute('''
+            CREATE VIEW IF NOT EXISTS customers AS
+            SELECT 
+                u.id,
+                (u.first_name || ' ' || u.last_name) as name,
+                u.email,
+                u.phone,
+                u.address,
+                '' as preferences,
+                0 as rating,
+                (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as total_jobs,
+                u.created_at
+            FROM users u
+            WHERE u.role = 'customer'
+        ''')
+    except sqlite3.OperationalError as e:
+        # If React backend tables don't exist yet, create fallback tables
+        print(f"React backend tables not found, using fallback: {e}")
+        
+        # Create fallback jobs table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_id INTEGER,
+                employee_id INTEGER,
+                title TEXT NOT NULL,
+                description TEXT,
+                scheduled_date DATE,
+                scheduled_time TEXT,
+                duration INTEGER,
+                status TEXT DEFAULT 'pending',
+                service_type TEXT,
+                location TEXT,
+                price REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Create fallback customers table  
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS customers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                address TEXT,
+                preferences TEXT,
+                rating REAL DEFAULT 0,
+                total_jobs INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+    
     
     # Insert default admin user
     try:
@@ -188,30 +250,21 @@ def init_database():
     except:
         pass
     
-    # Insert default service types with multilingual support
-    default_services = [
-        ('Basic Cleaning', 'Grundreinigung', 'Standard cleaning service', 'Standard-Reinigungsservice', 45.0, 2),
-        ('Deep Cleaning', 'Tiefenreinigung', 'Thorough deep cleaning', 'Gründliche Tiefenreinigung', 75.0, 4),
-        ('Office Cleaning', 'Büroreinigung', 'Professional office cleaning', 'Professionelle Büroreinigung', 55.0, 3),
-        ('Window Cleaning', 'Fensterreinigung', 'Interior and exterior windows', 'Innen- und Außenfenster', 35.0, 1),
-        ('Carpet Cleaning', 'Teppichreinigung', 'Professional carpet cleaning', 'Professionelle Teppichreinigung', 65.0, 2),
-        ('Move-in/Move-out', 'Ein-/Auszugsreinigung', 'Complete move cleaning', 'Komplette Umzugsreinigung', 95.0, 5)
-    ]
-    
-    for service in default_services:
-        try:
-            conn.execute('''INSERT OR IGNORE INTO service_types 
-                           (name_en, name_de, description_en, description_de, base_price, duration_hours) 
-                           VALUES (?, ?, ?, ?, ?, ?)''', service)
-        except:
-            pass
+    # Note: Service types are managed by the React backend
+    # Default service types already exist in the React backend database
     
     conn.commit()
     return conn
 
+def initialize_database_schema():
+    """Initialize database schema (called once on startup)"""
+    conn = get_db_connection()
+    # ... (all the table creation code would go here if needed)
+    conn.close()
+
 def check_admin_login(username: str, password: str) -> bool:
     """Check admin credentials"""
-    conn = init_database()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT password_hash FROM admin_users WHERE username = ?', (username,))
     result = cursor.fetchone()
@@ -249,7 +302,7 @@ def show_login_form():
 def show_dashboard():
     """Show main dashboard with multilingual support"""
     current_lang = get_current_language()
-    conn = init_database()
+    conn = get_db_connection()
     
     st.title("📊 " + t("dashboard", current_lang))
     
@@ -259,7 +312,7 @@ def show_dashboard():
     with col1:
         # Count customers from both tables
         manual_customers = conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
-        portal_customers = conn.execute("SELECT COUNT(*) FROM customer_users").fetchone()[0]
+        portal_customers = conn.execute("SELECT COUNT(*) FROM users WHERE role = 'customer'").fetchone()[0]
         total_customers = manual_customers + portal_customers
         st.metric(t("total_customers", current_lang), total_customers)
     
@@ -335,7 +388,7 @@ def show_dashboard():
 def manage_customers():
     """Customer management with multilingual support"""
     current_lang = get_current_language()
-    conn = init_database()
+    conn = get_db_connection()
     
     st.title("👥 " + t("customer_management", current_lang))
     
@@ -365,10 +418,11 @@ def manage_customers():
             address,
             'Registered via customer portal' as preferences,
             0 as rating,
-            0 as total_jobs,
+            (SELECT COUNT(*) FROM bookings WHERE user_id = users.id) as total_jobs,
             created_at,
             'Portal Registration' as source
-        FROM customer_users
+        FROM users
+        WHERE role = 'customer'
         ORDER BY created_at DESC
         """
         
@@ -429,7 +483,7 @@ def manage_customers():
 def manage_employees():
     """Employee management with multilingual support"""
     current_lang = get_current_language()
-    conn = init_database()
+    conn = get_db_connection()
     
     st.title("👨‍💼 " + t("employee_management", current_lang))
     
@@ -439,7 +493,7 @@ def manage_employees():
         # Query with flexible column handling for backward compatibility
         employees = pd.read_sql_query("""
             SELECT id, name, email, phone, hourly_rate, 
-                   COALESCE(specialties, skills, '') as specialties,
+                   COALESCE(specialties, '') as specialties,
                    availability, 
                    COALESCE(status, 'active') as status, 
                    created_at 
@@ -530,7 +584,7 @@ def manage_employees():
 def manage_jobs():
     """Advanced Job management with multilingual support"""
     current_lang = get_current_language()
-    conn = init_database()
+    conn = get_db_connection()
     
     st.title("📋 " + t("job_management", current_lang))
     
@@ -568,16 +622,14 @@ def show_all_jobs(conn, current_lang):
     jobs_query = """
         SELECT 
             j.*,
-            COALESCE(c.name, cu.first_name || ' ' || cu.last_name, 'Unassigned') as customer_name,
+            COALESCE(c.name, u.first_name || ' ' || u.last_name, 'Unassigned') as customer_name,
             COALESCE(e.name, 'Unassigned') as employee_name,
-            st.name_en, st.name_de,
-            cb.date as booking_date, cb.start_time, cb.end_time
+            st.name as service_name
         FROM jobs j 
         LEFT JOIN customers c ON j.customer_id = c.id 
-        LEFT JOIN customer_users cu ON j.customer_id = cu.id
+        LEFT JOIN users u ON j.customer_id = u.id AND u.role = 'customer'
         LEFT JOIN employees e ON j.employee_id = e.id
-        LEFT JOIN customer_bookings cb ON j.customer_id = cb.customer_user_id
-        LEFT JOIN service_types st ON j.service_type = st.name OR j.service_type = st.name_en
+        LEFT JOIN service_types st ON j.service_type = st.name
         ORDER BY j.created_at DESC
     """
     
@@ -729,16 +781,16 @@ def show_employee_assignment(conn, current_lang):
     
     # Get unassigned jobs and available employees
     unassigned_jobs = pd.read_sql_query("""
-        SELECT j.*, COALESCE(c.name, cu.first_name || ' ' || cu.last_name) as customer_name
+        SELECT j.*, COALESCE(c.name, u.first_name || ' ' || u.last_name) as customer_name
         FROM jobs j 
         LEFT JOIN customers c ON j.customer_id = c.id 
-        LEFT JOIN customer_users cu ON j.customer_id = cu.id
+        LEFT JOIN users u ON j.customer_id = u.id AND u.role = 'customer'
         WHERE j.employee_id IS NULL AND j.status IN ('pending', 'confirmed')
         ORDER BY j.scheduled_date ASC
     """, conn)
     
     available_employees = pd.read_sql_query("""
-        SELECT id, name, COALESCE(specialties, skills, '') as specialties, hourly_rate
+        SELECT id, name, COALESCE(specialties, '') as specialties, hourly_rate
         FROM employees 
         WHERE COALESCE(status, 'active') = 'active'
     """, conn)
@@ -841,11 +893,11 @@ def show_job_board(conn, current_lang):
     jobs = pd.read_sql_query("""
         SELECT 
             j.*,
-            COALESCE(c.name, cu.first_name || ' ' || cu.last_name, 'Unassigned') as customer_name,
+            COALESCE(c.name, u.first_name || ' ' || u.last_name, 'Unassigned') as customer_name,
             COALESCE(e.name, 'Unassigned') as employee_name
         FROM jobs j 
         LEFT JOIN customers c ON j.customer_id = c.id 
-        LEFT JOIN customer_users cu ON j.customer_id = cu.id
+        LEFT JOIN users u ON j.customer_id = u.id AND u.role = 'customer'
         LEFT JOIN employees e ON j.employee_id = e.id
         ORDER BY j.scheduled_date ASC, j.created_at ASC
     """, conn)
@@ -922,11 +974,11 @@ def show_bulk_operations(conn, current_lang):
     all_jobs = pd.read_sql_query("""
         SELECT 
             j.*,
-            COALESCE(c.name, cu.first_name || ' ' || cu.last_name, 'Unassigned') as customer_name,
+            COALESCE(c.name, u.first_name || ' ' || u.last_name, 'Unassigned') as customer_name,
             COALESCE(e.name, 'Unassigned') as employee_name
         FROM jobs j 
         LEFT JOIN customers c ON j.customer_id = c.id 
-        LEFT JOIN customer_users cu ON j.customer_id = cu.id
+        LEFT JOIN users u ON j.customer_id = u.id AND u.role = 'customer'
         LEFT JOIN employees e ON j.employee_id = e.id
         ORDER BY j.created_at DESC
     """, conn)
@@ -1245,7 +1297,7 @@ def show_edit_job_form(conn, job, current_lang):
 def show_assignment_form(conn, job, current_lang):
     """Show employee assignment form"""
     available_employees = pd.read_sql_query("""
-        SELECT id, name, COALESCE(specialties, skills, '') as specialties, hourly_rate
+        SELECT id, name, COALESCE(specialties, '') as specialties, hourly_rate
         FROM employees 
         WHERE COALESCE(status, 'active') = 'active'
     """, conn)
@@ -1293,6 +1345,9 @@ def show_add_job_form(conn, current_lang):
             WHERE COALESCE(status, 'active') = 'active'
         """, conn)
         
+        # Get actual service types from database
+        service_types_df = pd.read_sql_query("SELECT name FROM service_types WHERE is_active = 1", conn)
+        
         col1, col2 = st.columns(2)
         
         with col1:
@@ -1309,9 +1364,9 @@ def show_add_job_form(conn, current_lang):
             selected_employee = st.selectbox(t("assign_employee", current_lang), employee_options)
         
         with col2:
-            service_type = st.selectbox(t("service_type", current_lang), 
-                                      [t("basic_cleaning", current_lang), t("deep_cleaning", current_lang), 
-                                       t("office_cleaning", current_lang), t("window_cleaning", current_lang)])
+            # Use actual service types from database
+            service_type_options = service_types_df['name'].tolist() if not service_types_df.empty else ['Basic Cleaning', 'Deep Cleaning', 'Office Cleaning']
+            service_type = st.selectbox(t("service_type", current_lang), service_type_options)
             
             scheduled_date = st.date_input(t("scheduled_date", current_lang))
             scheduled_time = st.time_input(t("scheduled_time", current_lang))
@@ -1345,7 +1400,7 @@ def show_add_job_form(conn, current_lang):
 def show_analytics():
     """Analytics dashboard with multilingual support"""
     current_lang = get_current_language()
-    conn = init_database()
+    conn = get_db_connection()
     
     st.title("📈 " + t("analytics", current_lang))
     
@@ -1471,6 +1526,12 @@ def show_settings():
 
 def main():
     """Main application with language support"""
+    # Initialize database schema on first run
+    try:
+        init_database()
+    except Exception as e:
+        st.error(f"Database initialization error: {e}")
+        
     # Initialize session state
     if 'admin_logged_in' not in st.session_state:
         st.session_state.admin_logged_in = False
