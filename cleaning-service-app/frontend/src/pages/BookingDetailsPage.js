@@ -260,6 +260,7 @@ const BookingDetailsPage = () => {
     const fetchBookingDetails = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         
         // Try to get booking ID from params or search params
         const id = bookingId || searchParams.get('bookingId');
@@ -274,7 +275,12 @@ const BookingDetailsPage = () => {
         // Try to fetch from API
         try {
           const response = await apiService.getBookingById(id);
-          setBooking(response);
+          if (response && response.service) {
+            setBooking(response);
+          } else {
+            // If response is missing required data, use sample data
+            setBooking(getSampleBooking(id));
+          }
         } catch (apiError) {
           console.warn('Could not fetch booking from API, using sample data:', apiError);
           // Fallback to sample data with the provided ID
@@ -290,7 +296,7 @@ const BookingDetailsPage = () => {
     };
 
     fetchBookingDetails();
-  }, [bookingId, searchParams]);
+  }, [bookingId, searchParams, user]);
 
   const getSampleBooking = (id = null) => {
     const bookingIdToUse = id || searchParams.get('bookingId') || 'BS' + Date.now();
@@ -368,20 +374,43 @@ const BookingDetailsPage = () => {
   if (isLoading) {
     return (
       <DetailsContainer>
-        <div style={{ textAlign: 'center', padding: '4rem' }}>
-          <h2>Loading booking details...</h2>
-        </div>
+        <DetailsCard>
+          <Header>
+            <Title>Loading...</Title>
+          </Header>
+        </DetailsCard>
       </DetailsContainer>
     );
   }
 
-  if (error && !booking) {
+  if (error) {
     return (
       <DetailsContainer>
-        <div style={{ textAlign: 'center', padding: '4rem' }}>
-          <h2>Error: {error}</h2>
-          <button onClick={() => navigate('/dashboard')}>Return to Dashboard</button>
-        </div>
+        <DetailsCard>
+          <Header>
+            <BackButton onClick={() => navigate(-1)}>
+              <FaArrowLeft />
+            </BackButton>
+            <Title>Error</Title>
+            <BookingId>{error}</BookingId>
+          </Header>
+        </DetailsCard>
+      </DetailsContainer>
+    );
+  }
+
+  if (!booking || !booking.service) {
+    return (
+      <DetailsContainer>
+        <DetailsCard>
+          <Header>
+            <BackButton onClick={() => navigate(-1)}>
+              <FaArrowLeft />
+            </BackButton>
+            <Title>Booking Not Found</Title>
+            <BookingId>The requested booking could not be found</BookingId>
+          </Header>
+        </DetailsCard>
       </DetailsContainer>
     );
   }

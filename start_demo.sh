@@ -49,8 +49,8 @@ wait_for_service() {
 echo -e "${BLUE}🔍 Checking prerequisites...${NC}"
 
 # Check if Python is installed
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}❌ Python 3 is required but not installed${NC}"
+if ! command -v python3.11 &> /dev/null; then
+    echo -e "${RED}❌ Python 3.11 is required but not installed${NC}"
     exit 1
 fi
 
@@ -78,7 +78,7 @@ echo -e "${GREEN}✅ All required ports are available${NC}"
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
     echo -e "${BLUE}🐍 Creating Python virtual environment...${NC}"
-    python3 -m venv .venv
+    python3.11 -m venv .venv
 fi
 
 # Activate virtual environment
@@ -87,7 +87,7 @@ source .venv/bin/activate
 
 # Install Python requirements
 echo -e "${BLUE}📦 Installing Python dependencies...${NC}"
-pip install -r requirements.txt > /dev/null 2>&1
+pip install -r requirements.txt
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Python dependencies installed${NC}"
 else
@@ -106,21 +106,36 @@ fi
 # Start Backend API (Port 5000)
 echo -e "${BLUE}🚀 Starting Backend API (Port 5000)...${NC}"
 cd cleaning-service-app/backend
-npm install > /dev/null 2>&1
-npm start > ../backend.log 2>&1 &
+echo -e "${BLUE}📦 Installing backend dependencies...${NC}"
+npm install
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Backend dependencies installed${NC}"
+    npm start > ../backend.log 2>&1 &
+else
+    echo -e "${RED}❌ Failed to install backend dependencies${NC}"
+    exit 1
+fi
 BACKEND_PID=$!
 cd ../..
 
 # Start Admin Portal (Port 8501)
 echo -e "${BLUE}🚀 Starting Admin Portal (Port 8501)...${NC}"
-python admin_portal_multilingual.py > admin_portal.log 2>&1 &
+echo -e "${BLUE}🚀 Starting admin portal with debug info...${NC}"
+python -m streamlit run admin_portal_multilingual.py --logger.level=debug > admin_portal.log 2>&1 &
 ADMIN_PID=$!
 
 # Start Frontend (Port 3000)
 echo -e "${BLUE}🚀 Starting Frontend Website (Port 3000)...${NC}"
 cd cleaning-service-app/frontend
-npm install > /dev/null 2>&1
-npm start > ../frontend.log 2>&1 &
+echo -e "${BLUE}📦 Installing frontend dependencies...${NC}"
+npm install
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Frontend dependencies installed${NC}"
+    npm start > ../frontend.log 2>&1 &
+else
+    echo -e "${RED}❌ Failed to install frontend dependencies${NC}"
+    exit 1
+fi
 FRONTEND_PID=$!
 cd ../..
 

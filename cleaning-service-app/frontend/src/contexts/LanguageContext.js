@@ -120,6 +120,8 @@ const translations = {
     'move-in-out': 'Move-in/Move-out Cleaning',
     
     // Booking
+    'booking-title': '✨ Experience Professional Cleaning Service',
+    'booking-subtitle': 'Transform Your Space in Just a Few Clicks - Top-Rated Cleaners at Your Service',
     'book-service': 'Book a Service',
     'select-service': 'Select Service',
     'choose-date': 'Choose Date',
@@ -460,6 +462,8 @@ const translations = {
     'move-in-out': 'Ein-/Auszugsreinigung',
     
     // Booking
+    'booking-title': '✨ Erleben Sie professionelle Reinigung',
+    'booking-subtitle': 'Verwandeln Sie Ihren Raum mit wenigen Klicks - Erstklassige Reinigungskräfte zu Ihren Diensten',
     'book-service': 'Service Buchen',
     'select-service': 'Service Auswählen',
     'choose-date': 'Datum Wählen',

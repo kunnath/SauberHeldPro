@@ -456,10 +456,10 @@ const BookingPage = () => {
     >
       <FormGrid>
         <FormSection>
-          <h3><FaCalendarAlt /> Select Date & Time</h3>
+          <h3><FaCalendarAlt /> {t('select-date-time')}</h3>
           
           <FormGroup>
-            <Label>Preferred Date</Label>
+            <Label>{t('preferred-date')}</Label>
             <DatePicker
               selected={selectedDate}
               onChange={setSelectedDate}
@@ -471,7 +471,7 @@ const BookingPage = () => {
         </FormSection>
         
         <FormSection>
-          <h3><FaClock /> Available Time Slots</h3>
+          <h3><FaClock /> {t('available-time-slots')}</h3>
           
           {selectedDate ? (
             <TimeSlotGrid>
@@ -488,23 +488,23 @@ const BookingPage = () => {
             </TimeSlotGrid>
           ) : (
             <p style={{ color: '#666', marginTop: '1rem' }}>
-              Please select a date to view available time slots.
+              {t('select-date-to-view-slots')}
             </p>
           )}
           
           {selectedDate && selectedTime && (
             <SummaryCard>
-              <SummaryTitle>Selected Schedule</SummaryTitle>
+              <SummaryTitle>{t('selected-schedule')}</SummaryTitle>
               <SummaryItem>
-                <span>Date:</span>
+                <span>{t('date')}:</span>
                 <span>{selectedDate.toLocaleDateString()}</span>
               </SummaryItem>
               <SummaryItem>
-                <span>Time:</span>
+                <span>{t('time')}:</span>
                 <span>{selectedTime}</span>
               </SummaryItem>
               <SummaryItem>
-                <span>Duration:</span>
+                <span>{t('duration')}:</span>
                 <span>{selectedService?.duration} hours</span>
               </SummaryItem>
             </SummaryCard>
@@ -524,10 +524,10 @@ const BookingPage = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         <FormGrid>
           <FormSection>
-            <h3><FaUser /> Contact Information</h3>
+            <h3><FaUser /> {t('contact-information')}</h3>
             
             <FormGroup>
-              <Label>First Name *</Label>
+              <Label>{t('first-name')} *</Label>
               <Input
                 {...register('firstName', { required: 'First name is required' })}
                 className={errors.firstName ? 'error' : ''}
@@ -536,7 +536,7 @@ const BookingPage = () => {
             </FormGroup>
             
             <FormGroup>
-              <Label>Last Name *</Label>
+              <Label>{t('last-name')} *</Label>
               <Input
                 {...register('lastName', { required: 'Last name is required' })}
                 className={errors.lastName ? 'error' : ''}
@@ -545,7 +545,7 @@ const BookingPage = () => {
             </FormGroup>
             
             <FormGroup>
-              <Label>Email *</Label>
+              <Label>{t('email')} *</Label>
               <Input
                 type="email"
                 {...register('email', { 
@@ -561,7 +561,7 @@ const BookingPage = () => {
             </FormGroup>
             
             <FormGroup>
-              <Label>Phone Number</Label>
+              <Label>{t('phone-number')}</Label>
               <Input
                 type="tel"
                 {...register('phone')}
@@ -570,50 +570,50 @@ const BookingPage = () => {
           </FormSection>
           
           <FormSection>
-            <h3><FaMapMarkerAlt /> Address & Details</h3>
+            <h3><FaMapMarkerAlt /> {t('address-details')}</h3>
             
             <FormGroup>
-              <Label>Full Address *</Label>
+              <Label>{t('full-address')} *</Label>
               <TextArea
                 {...register('address', { required: 'Address is required' })}
-                placeholder="Street address, apartment number, city, postal code"
+                placeholder={t('address-placeholder')}
                 className={errors.address ? 'error' : ''}
               />
               {errors.address && <ErrorMessage>{errors.address.message}</ErrorMessage>}
             </FormGroup>
             
             <FormGroup>
-              <Label>Special Instructions</Label>
+              <Label>{t('special-instructions')}</Label>
               <TextArea
                 {...register('specialInstructions')}
-                placeholder="Any special requirements, access instructions, or areas to focus on..."
+                placeholder={t('special-instructions-placeholder')}
               />
             </FormGroup>
             
             <SummaryCard>
-              <SummaryTitle>Booking Summary</SummaryTitle>
+              <SummaryTitle>{t('booking-summary')}</SummaryTitle>
               <SummaryItem>
-                <span>Service:</span>
+                <span>{t('service')}:</span>
                 <span>{selectedService?.name}</span>
               </SummaryItem>
               <SummaryItem>
-                <span>Date & Time:</span>
+                <span>{t('date-time')}:</span>
                 <span>{selectedDate?.toLocaleDateString()} at {selectedTime}</span>
               </SummaryItem>
               <SummaryItem>
-                <span>Duration:</span>
+                <span>{t('duration')}:</span>
                 <span>{selectedService?.duration} hours</span>
               </SummaryItem>
               <SummaryItem>
-                <span>Location:</span>
+                <span>{t('location')}:</span>
                 <span>{postalCode}</span>
               </SummaryItem>
               <SummaryItem>
-                <span><strong>Total Price:</strong></span>
+                <span><strong>{t('total-price')}:</strong></span>
                 <strong>€{selectedService ? (selectedService.price * selectedService.duration).toFixed(2) : '0.00'}</strong>
               </SummaryItem>
               <SummaryItem>
-                <span><strong>Deposit Required:</strong></span>
+                <span><strong>{t('deposit-required')}:</strong></span>
                 <strong>€{selectedService?.price.toFixed(2) || '0.00'}</strong>
               </SummaryItem>
             </SummaryCard>
@@ -624,9 +624,9 @@ const BookingPage = () => {
   );
 
   const steps = [
-    { number: 1, label: t('select-service-step') },
-    { number: 2, label: t('choose-date-time') },
-    { number: 3, label: t('contact-details-step') }
+    { number: 1, label: t('step-1') },
+    { number: 2, label: t('step-2') },
+    { number: 3, label: t('step-3') },
   ];
 
   const canProceed = () => {
@@ -646,20 +646,19 @@ const BookingPage = () => {
     <BookingContainer>
       <div className="container">
         <BookingHeader>
-          <Title>{t('book-cleaning-service')}</Title>
-          <Subtitle>{t('quick-easy-booking')}</Subtitle>
+          <Title>{t('booking-title')}</Title>
+          <Subtitle>{t('booking-subtitle')}</Subtitle>
         </BookingHeader>
         
         <ProgressBar>
-          {steps.map((step, index) => (
+          {steps.map((step) => (
             <ProgressStep key={step.number}>
               <StepCircle active={currentStep >= step.number}>
                 {currentStep > step.number ? <FaCheck /> : step.number}
               </StepCircle>
-              <StepLabel active={currentStep >= step.number}>{step.label}</StepLabel>
-              {index < steps.length - 1 && (
-                <FaArrowRight style={{ margin: '0 1rem', color: '#ccc' }} />
-              )}
+              <StepLabel active={currentStep >= step.number}>
+                {step.label}
+              </StepLabel>
             </ProgressStep>
           ))}
         </ProgressBar>
