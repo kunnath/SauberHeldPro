@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "cleaning-service-app/frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "cleaning-service-app/frontend/build/$1"
+    }
+  ],
+  "env": {
+    "VERCEL_API_KEY": "GTRVbb6CMmp6tO86RXoj6FLc"
+  }
+}
