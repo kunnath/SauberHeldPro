@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaUserPlus, FaEnvelope, FaPhone } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const LoginContainer = styled.div`
   min-height: 100vh;
@@ -269,6 +270,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login, register: authRegister, isAuthenticated, isLoading, error, clearError, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -332,11 +334,11 @@ const LoginPage = () => {
         transition={{ duration: 0.5 }}
       >
         <LoginHeader>
-          <Title>Welcome Back</Title>
+          <Title>{t('welcome-back')}</Title>
           <Subtitle>
             {activeTab === 'login' 
-              ? 'Sign in to your account' 
-              : 'Create your account'
+              ? t('sign-in-account') 
+              : t('create-account')
             }
           </Subtitle>
         </LoginHeader>
@@ -347,14 +349,14 @@ const LoginPage = () => {
             onClick={() => setActiveTab('login')}
             type="button"
           >
-            Sign In
+            {t('sign-in')}
           </Tab>
           <Tab 
             active={activeTab === 'register'} 
             onClick={() => setActiveTab('register')}
             type="button"
           >
-            Sign Up
+            {t('register')}
           </Tab>
         </TabContainer>
 
@@ -375,13 +377,13 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="email"
-                placeholder="Email address"
+                placeholder={t('email-address')}
                 autoComplete="email"
                 {...loginForm.register('email', {
-                  required: 'Email is required',
+                  required: t('required-field'),
                   pattern: {
                     value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                    message: 'Please enter a valid email address'
+                    message: t('invalid-email')
                   }
                 })}
               />
@@ -394,13 +396,13 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
+                placeholder={t('password')}
                 autoComplete="current-password"
                 {...loginForm.register('password', {
-                  required: 'Password is required',
+                  required: t('required-field'),
                   minLength: {
                     value: 6,
-                    message: 'Password must be at least 6 characters'
+                    message: t('password-min-length')
                   }
                 })}
               />
@@ -422,12 +424,12 @@ const LoginPage = () => {
               {isLoading ? (
                 <>
                   <LoadingSpinner />
-                  Signing In...
+                  {t('signing-in')}
                 </>
               ) : (
                 <>
                   <FaUser />
-                  Sign In
+                  {t('sign-in')}
                 </>
               )}
             </SubmitButton>
@@ -440,12 +442,12 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="text"
-                placeholder="First Name"
+                placeholder={t('first-name')}
                 autoComplete="given-name"
                 id="firstName"
                 name="firstName"
                 {...registerForm.register('firstName', {
-                  required: 'First name is required'
+                  required: t('required-field')
                 })}
               />
               {registerForm.formState.errors.firstName && <ErrorMessage>{registerForm.formState.errors.firstName.message}</ErrorMessage>}
@@ -457,12 +459,12 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="text"
-                placeholder="Last Name"
+                placeholder={t('last-name')}
                 autoComplete="family-name"
                 id="lastName"
                 name="lastName"
                 {...registerForm.register('lastName', {
-                  required: 'Last name is required'
+                  required: t('required-field')
                 })}
               />
               {registerForm.formState.errors.lastName && <ErrorMessage>{registerForm.formState.errors.lastName.message}</ErrorMessage>}
@@ -474,15 +476,15 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="email"
-                placeholder="Email address"
+                placeholder={t('email-address')}
                 autoComplete="email"
                 id="registerEmail"
                 name="email"
                 {...registerForm.register('email', {
-                  required: 'Email is required',
+                  required: t('required-field'),
                   pattern: {
                     value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                    message: 'Please enter a valid email address'
+                    message: t('invalid-email')
                   }
                 })}
               />
@@ -495,7 +497,7 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="tel"
-                placeholder="Phone number (optional)"
+                placeholder={t('phone-optional')}
                 autoComplete="tel"
                 {...registerForm.register('phone')}
               />
@@ -507,7 +509,7 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type="text"
-                placeholder="Address (optional)"
+                placeholder={t('address-optional')}
                 autoComplete="street-address"
                 {...registerForm.register('address')}
               />
@@ -519,13 +521,13 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
+                placeholder={t('password')}
                 autoComplete="new-password"
                 {...registerForm.register('password', {
-                  required: 'Password is required',
+                  required: t('required-field'),
                   minLength: {
                     value: 6,
-                    message: 'Password must be at least 6 characters'
+                    message: t('password-min-length')
                   }
                 })}
               />
@@ -544,11 +546,11 @@ const LoginPage = () => {
               </InputIcon>
               <Input
                 type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Confirm Password"
+                placeholder={t('confirm-password')}
                 autoComplete="new-password"
                 {...registerForm.register('confirmPassword', {
-                  required: 'Please confirm your password',
-                  validate: value => value === password || 'Passwords do not match'
+                  required: t('confirm-password-required'),
+                  validate: value => value === password || t('passwords-do-not-match')
                 })}
               />
               <PasswordToggle
@@ -569,12 +571,12 @@ const LoginPage = () => {
               {isLoading ? (
                 <>
                   <LoadingSpinner />
-                  Creating Account...
+                  {t('creating-account')}
                 </>
               ) : (
                 <>
                   <FaUserPlus />
-                  Create Account
+                  {t('create-account')}
                 </>
               )}
             </SubmitButton>

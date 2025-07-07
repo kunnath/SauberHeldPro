@@ -267,7 +267,7 @@ const ErrorMessage = styled.span`
 `;
 
 const BookingPage = () => {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
@@ -280,7 +280,8 @@ const BookingPage = () => {
   const [loading, setLoading] = useState(false);
   const [postalCode, setPostalCode] = useState(location.state?.postalCode || '');
 
-  const services = [
+  // Generate services array with current language translations
+  const getLocalizedServices = () => [
     {
       id: 1,
       name: t('basic-cleaning-booking'),
@@ -303,6 +304,8 @@ const BookingPage = () => {
       description: t('office-cleaning-booking-desc')
     }
   ];
+  
+  const [services, setServices] = useState(getLocalizedServices());
 
   const timeSlots = [
     '08:00', '09:00', '10:00', '11:00', '12:00',
@@ -319,6 +322,20 @@ const BookingPage = () => {
       setAvailableSlots(slots);
     }
   }, [selectedDate]);
+
+  // Update services when language changes
+  useEffect(() => {
+    const updatedServices = getLocalizedServices();
+    setServices(updatedServices);
+    
+    // Update selected service with new language if one is already selected
+    if (selectedService) {
+      const updatedSelectedService = updatedServices.find(service => service.id === selectedService.id);
+      if (updatedSelectedService) {
+        setSelectedService(updatedSelectedService);
+      }
+    }
+  }, [currentLanguage]);
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
