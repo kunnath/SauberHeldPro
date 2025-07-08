@@ -6,6 +6,11 @@
 [![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20DE-blue)](docs)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success)](docs)
 
+## 🎥 Demo Video
+[![SauberHeldPro Demo](https://img.youtube.com/vi/F-lOMApzB6E/0.jpg)](https://www.youtube.com/watch?v=F-lOMApzB6E)
+
+Watch our comprehensive demo showcasing the multilingual features, booking system, and admin management interface.
+
 ---
 
 ## 🚀 Quick Demo Start
