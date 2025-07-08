@@ -87,3 +87,4 @@ fix_database_schema.py
 
 # Bash scripts (development utilities)
 *.sh
+.vercel

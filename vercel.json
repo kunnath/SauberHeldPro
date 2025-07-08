@@ -2,20 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "cleaning-service-app/frontend/package.json",
-      "use": "@vercel/static-build",
+      "src": "index.py",
+      "use": "@vercel/python",
       "config": {
-        "distDir": "build"
+        "runtime": "python3.9",
+        "installCommand": "pip install -r requirements-vercel.txt"
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "cleaning-service-app/frontend/build/$1"
+      "dest": "/"
     }
-  ],
-  "env": {
-    "VERCEL_API_KEY": "GTRVbb6CMmp6tO86RXoj6FLc"
-  }
+  ]
 }

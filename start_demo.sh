@@ -27,7 +27,7 @@ check_port() {
 wait_for_service() {
     local port=$1
     local service_name=$2
-    local max_attempts=30
+    local max_attempts=60  # Increased max attempts
     local attempt=1
     
     echo -e "${YELLOW}⏳ Waiting for ${service_name} to start on port ${port}...${NC}"
@@ -49,8 +49,12 @@ wait_for_service() {
 echo -e "${BLUE}🔍 Checking prerequisites...${NC}"
 
 # Check if Python is installed
-if ! command -v python3.11 &> /dev/null; then
-    echo -e "${RED}❌ Python 3.11 is required but not installed${NC}"
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python3.11 &> /dev/null; then
+    PYTHON_CMD="python3.11"
+else
+    echo -e "${RED}❌ Python 3 is required but not installed${NC}"
     exit 1
 fi
 
@@ -78,7 +82,7 @@ echo -e "${GREEN}✅ All required ports are available${NC}"
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
     echo -e "${BLUE}🐍 Creating Python virtual environment...${NC}"
-    python3.11 -m venv .venv
+    $PYTHON_CMD -m venv .venv
 fi
 
 # Activate virtual environment
@@ -107,7 +111,12 @@ fi
 echo -e "${BLUE}🚀 Starting Backend API (Port 5000)...${NC}"
 cd cleaning-service-app/backend
 echo -e "${BLUE}📦 Installing backend dependencies...${NC}"
+
+# Clean npm cache and reinstall dependencies for backend
+npm cache clean --force > /dev/null 2>&1
+rm -rf node_modules package-lock.json > /dev/null 2>&1
 npm install
+
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Backend dependencies installed${NC}"
     npm start > ../backend.log 2>&1 &
@@ -120,7 +129,6 @@ cd ../..
 
 # Start Admin Portal (Port 8501)
 echo -e "${BLUE}🚀 Starting Admin Portal (Port 8501)...${NC}"
-echo -e "${BLUE}🚀 Starting admin portal with debug info...${NC}"
 python -m streamlit run admin_portal_multilingual.py --logger.level=debug > admin_portal.log 2>&1 &
 ADMIN_PID=$!
 
@@ -128,7 +136,12 @@ ADMIN_PID=$!
 echo -e "${BLUE}🚀 Starting Frontend Website (Port 3000)...${NC}"
 cd cleaning-service-app/frontend
 echo -e "${BLUE}📦 Installing frontend dependencies...${NC}"
+
+# Clean npm cache and reinstall dependencies for frontend
+npm cache clean --force > /dev/null 2>&1
+rm -rf node_modules package-lock.json > /dev/null 2>&1
 npm install
+
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Frontend dependencies installed${NC}"
     npm start > ../frontend.log 2>&1 &

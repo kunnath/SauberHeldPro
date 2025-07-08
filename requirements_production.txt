@@ -1,20 +1,22 @@
 # Aufraumenbee - Production Requirements
-# Core dependencies for the cleaning service management system
+# Minimized dependencies for Vercel deployment
 
-# Web framework
-streamlit>=1.28.0
+# Web framework - limit streamlit to essential components
+streamlit==1.28.0
+streamlit-option-menu==0.3.12
+streamlit-authenticator==0.3.2
 
-# Database
-pandas>=2.0.0
+# Database - use lightweight alternatives when possible
+pandas==2.0.0
+numpy==1.22.4
+
+# Plotting - lightweight
+plotly==5.17.0
 
 # Authentication and security
-bcrypt>=4.0.0
+bcrypt==4.1.3
 
-# Date/time handling
-python-dateutil>=2.8.0
-
-# Data validation
-email-validator>=2.0.0
-
-# Optional: For better performance
-watchdog>=3.0.0
+# Utilities
+python-dotenv==1.0.1
+python-dateutil==2.8.2
+email-validator==2.0.0
