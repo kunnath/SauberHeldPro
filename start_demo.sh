@@ -82,12 +82,19 @@ echo -e "${GREEN}✅ All required ports are available${NC}"
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
     echo -e "${BLUE}🐍 Creating Python virtual environment...${NC}"
-    $PYTHON_CMD -m venv .venv
+    $PYTHON_CMD -m venv .venv || {
+        echo -e "${RED}❌ Failed to create virtual environment${NC}"
+        exit 1
+    }
 fi
 
 # Activate virtual environment
 echo -e "${BLUE}🐍 Activating Python virtual environment...${NC}"
-source .venv/bin/activate
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    source .venv/bin/activate
+else
+    source .venv/Scripts/activate
+fi
 
 # Install Python requirements
 echo -e "${BLUE}📦 Installing Python dependencies...${NC}"
@@ -109,13 +116,16 @@ fi
 
 # Start Backend API (Port 5000)
 echo -e "${BLUE}🚀 Starting Backend API (Port 5000)...${NC}"
-cd cleaning-service-app/backend
+cd cleaning-service-app/backend || {
+    echo -e "${RED}❌ Backend directory not found${NC}"
+    exit 1
+}
 echo -e "${BLUE}📦 Installing backend dependencies...${NC}"
 
 # Clean npm cache and reinstall dependencies for backend
 npm cache clean --force > /dev/null 2>&1
 rm -rf node_modules package-lock.json > /dev/null 2>&1
-npm install
+npm install --legacy-peer-deps
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Backend dependencies installed${NC}"

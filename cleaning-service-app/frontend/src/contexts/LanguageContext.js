@@ -60,6 +60,8 @@ const translations = {
     'service-area': 'Service Area',
     'available-in': 'Available in Berlin and surrounding areas',
     'book-this-service': 'Book This Service',
+    'our-cleaning-services': 'Our Cleaning Services',
+    'professional-solutions-subtitle': 'Professional solutions for all your cleaning needs',
     
     // Service Descriptions
     'regular-cleaning-desc': 'Regular maintenance cleaning for your home or office',
@@ -205,6 +207,15 @@ const translations = {
     'testimonial-2-author': 'Michael K.',
     'testimonial-3': 'Great attention to detail and friendly service.',
     'testimonial-3-author': 'Lisa B.',
+
+    // Services Page Additional Content
+    'why-choose-services': 'Why Choose Our Services',
+    'quick-efficient': 'Quick & Efficient',
+    'quick-efficient-desc': 'Our experienced team delivers thorough cleaning services efficiently, saving you time and ensuring excellent results',
+    'fully-insured': 'Fully Insured',
+    'fully-insured-desc': 'Your property is protected with our comprehensive insurance coverage for complete peace of mind',
+    'flexible-scheduling': 'Flexible Scheduling',
+    'flexible-scheduling-detailed': 'Book our services at your convenience with flexible time slots available 7 days a week',
   },
   de: {
     // General
@@ -258,6 +269,8 @@ const translations = {
     'service-area': 'Servicegebiet',
     'available-in': 'Verfügbar in Berlin und Umgebung',
     'book-this-service': 'Diesen Service Buchen',
+    'our-cleaning-services': 'Unsere Reinigungsservices',
+    'professional-solutions-subtitle': 'Professionelle Lösungen für all Ihre Reinigungsbedürfnisse',
     
     // Service Descriptions
     'regular-cleaning-desc': 'Regelmäßige Unterhaltsreinigung für Ihr Zuhause oder Büro',
@@ -404,6 +417,15 @@ const translations = {
     'testimonial-2-author': 'Michael K.',
     'testimonial-3': 'Große Aufmerksamkeit für Details und freundlicher Service.',
     'testimonial-3-author': 'Lisa B.',
+
+    // Services Page Additional Content
+    'why-choose-services': 'Warum Unsere Dienstleistungen Wählen',
+    'quick-efficient': 'Schnell & Effizient',
+    'quick-efficient-desc': 'Unser erfahrenes Team erbringt gründliche Reinigungsleistungen effizient, spart Ihnen Zeit und garantiert exzellente Ergebnisse',
+    'fully-insured': 'Vollständig Versichert',
+    'fully-insured-desc': 'Ihr Eigentum ist durch unsere umfassende Versicherung geschützt, für absolute Sorgenfreiheit',
+    'flexible-scheduling': 'Flexible Terminplanung',
+    'flexible-scheduling-detailed': 'Buchen Sie unsere Dienste ganz nach Ihren Wünschen mit flexiblen Zeitfenstern an 7 Tagen die Woche',
   }
 };
 
