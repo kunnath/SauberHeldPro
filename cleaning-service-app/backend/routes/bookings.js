@@ -3,8 +3,144 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Booking:
+ *       type: object
+ *       required:
+ *         - serviceTypeId
+ *         - postalCode
+ *         - address
+ *         - bookingDate
+ *         - bookingTime
+ *         - duration
+ *         - totalPrice
+ *       properties:
+ *         serviceTypeId:
+ *           type: integer
+ *           description: ID of the service type
+ *         postalCode:
+ *           type: string
+ *           minLength: 5
+ *           description: Postal code of the service location
+ *         address:
+ *           type: string
+ *           minLength: 5
+ *           description: Address where the service will be performed
+ *         bookingDate:
+ *           type: string
+ *           format: date
+ *           description: Date of the service (YYYY-MM-DD)
+ *         bookingTime:
+ *           type: string
+ *           pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+ *           description: Time of the service (HH:mm)
+ *         duration:
+ *           type: integer
+ *           minimum: 1
+ *           description: Duration in hours
+ *         totalPrice:
+ *           type: number
+ *           format: float
+ *           minimum: 0
+ *           description: Total price of the booking
+ *         specialRequests:
+ *           type: string
+ *           description: Any special requests or notes (optional)
+ */
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+/**
+ * @swagger
+ * /api/bookings:
+ *   post:
+ *     summary: Create a new booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Booking'
+ *     responses:
+ *       201:
+ *         description: Booking created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Booking created successfully
+ *                 bookingId:
+ *                   type: integer
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Not authenticated
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/bookings:
+ *   get:
+ *     summary: Get all bookings for the authenticated user
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Not authenticated
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/bookings/{id}:
+ *   get:
+ *     summary: Get a specific booking by ID
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Booking ID
+ *     responses:
+ *       200:
+ *         description: Booking details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Booking'
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Booking not found
+ *       500:
+ *         description: Server error
+ */
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {

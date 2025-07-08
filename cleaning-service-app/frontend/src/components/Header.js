@@ -235,7 +235,7 @@ const LogoutButton = styled.button`
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
-  const { currentLanguage, changeLanguage, t } = useLanguage();
+  const { currentLanguage, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
 
   const handleBookNow = () => {
@@ -274,13 +274,13 @@ const Header = () => {
               <LanguageSwitcher>
                 <LanguageButton 
                   active={currentLanguage === 'en'}
-                  onClick={() => changeLanguage('en')}
+                  onClick={toggleLanguage}
                 >
                   EN
                 </LanguageButton>
                 <LanguageButton 
                   active={currentLanguage === 'de'}
-                  onClick={() => changeLanguage('de')}
+                  onClick={toggleLanguage}
                 >
                   DE
                 </LanguageButton>

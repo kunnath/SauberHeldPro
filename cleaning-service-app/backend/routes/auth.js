@@ -3,22 +3,90 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
+const { JWT_SECRET, JWT_EXPIRY } = require('../config/jwt');
 
 const router = express.Router();
 
-// JWT Secret (should be in environment variables)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *         - firstName
+ *         - lastName
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User's email address
+ *         password:
+ *           type: string
+ *           format: password
+ *           minLength: 6
+ *           description: User's password (min 6 characters)
+ *         firstName:
+ *           type: string
+ *           description: User's first name
+ *         lastName:
+ *           type: string
+ *           description: User's last name
+ *         phone:
+ *           type: string
+ *           description: User's phone number (optional)
+ *         address:
+ *           type: string
+ *           description: User's address (optional)
+ *         postalCode:
+ *           type: string
+ *           description: User's postal code (optional)
+ */
 
-// Register endpoint
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *     responses:
+ *       201:
+ *         description: User successfully registered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Registration successful
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *       400:
+ *         description: Validation error or user already exists
+ *       500:
+ *         description: Server error
+ */
 router.post('/register', [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
-  body('firstName').trim().isLength({ min: 1 }),
-  body('lastName').trim().isLength({ min: 1 })
+  body('email').isEmail().normalizeEmail().withMessage('Invalid email address'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('firstName').trim().isLength({ min: 1 }).withMessage('First name is required'),
+  body('lastName').trim().isLength({ min: 1 }).withMessage('Last name is required')
 ], async (req, res) => {
   try {
+    console.log('📝 Processing registration request');
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation failed:', errors.array());
       return res.status(400).json({
         error: 'Validation failed',
         details: errors.array()
@@ -26,12 +94,13 @@ router.post('/register', [
     }
 
     const { email, password, firstName, lastName, phone, postalCode, address } = req.body;
+    console.log('✅ Validation passed, checking if user exists:', email);
 
     // Check if user already exists
     db.get('SELECT id FROM users WHERE email = ?', [email], async (err, row) => {
       if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Database error' });
+        console.error('❌ Database error:', err);
+        return res.status(500).json({ error: 'Database error occurred while checking user existence' });
       }
 
       if (row) {
@@ -44,11 +113,11 @@ router.post('/register', [
 
       // Insert new user
       const stmt = db.prepare(`
-        INSERT INTO users (email, password, first_name, last_name, phone, address)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO users (email, password, first_name, last_name, phone, address, postal_code)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
-      stmt.run([email, passwordHash, firstName, lastName, phone, address], function(err) {
+      stmt.run([email, passwordHash, firstName, lastName, phone, address, postalCode], function(err) {
         if (err) {
           console.error('Error inserting user:', err);
           return res.status(500).json({ error: 'Failed to create user' });
@@ -58,9 +127,15 @@ router.post('/register', [
 
         // Generate JWT token
         const token = jwt.sign(
-          { userId, email, firstName, lastName },
+          { 
+            userId, 
+            email, 
+            firstName, 
+            lastName,
+            role: 'customer'
+          },
           JWT_SECRET,
-          { expiresIn: '7d' }
+          { expiresIn: JWT_EXPIRY }
         );
 
         res.status(201).json({
@@ -85,7 +160,55 @@ router.post('/register', [
   }
 });
 
-// Login endpoint
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login a user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for authentication
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     email:
+ *                       type: string
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *       401:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Server error
+ */
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists()

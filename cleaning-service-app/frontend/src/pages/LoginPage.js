@@ -132,10 +132,10 @@ const InputGroup = styled.div`
 const Input = styled.input`
   width: 100%;
   padding: 12px 16px 12px 48px;
-  border: 2px solid #e9ecef;
+  border: 2px solid ${props => props.className === 'error' ? props.theme.colors.danger : '#e9ecef'};
   border-radius: 10px;
   font-size: 1rem;
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
   box-sizing: border-box;
   background: white;
   
@@ -147,8 +147,12 @@ const Input = styled.input`
   
   &:focus {
     outline: none;
-    border-color: #2E86AB;
-    box-shadow: 0 0 0 3px rgba(46, 134, 171, 0.1);
+    border-color: ${props => props.className === 'error' ? props.theme.colors.danger : props.theme.colors.primary};
+    box-shadow: 0 0 0 3px ${props => 
+      props.className === 'error' 
+        ? 'rgba(220, 53, 69, 0.1)' 
+        : 'rgba(46, 134, 171, 0.1)'
+    };
   }
   
   &::placeholder {
@@ -254,6 +258,9 @@ const ErrorAlert = styled(motion.div)`
   border-radius: 10px;
   margin-bottom: ${props => props.theme.spacing.md};
   text-align: center;
+  font-weight: 500;
+  font-size: 0.95rem;
+  width: 100%;
 `;
 
 const SuccessAlert = styled(motion.div)`
@@ -263,6 +270,9 @@ const SuccessAlert = styled(motion.div)`
   border-radius: 10px;
   margin-bottom: ${props => props.theme.spacing.md};
   text-align: center;
+  font-weight: 500;
+  font-size: 0.95rem;
+  width: 100%;
 `;
 
 const LoginPage = () => {
@@ -315,12 +325,35 @@ const LoginPage = () => {
   };
 
   const onRegisterSubmit = async (data) => {
+    clearError();
     try {
       const result = await authRegister(data);
       console.log('✅ Registration successful:', result);
+      // Show success message and optionally switch to login tab
+      setTimeout(() => {
+        setActiveTab('login');
+        loginForm.setValue('email', data.email);
+      }, 1000);
     } catch (err) {
       console.error('❌ Registration error:', err);
-      // Error is handled by the auth context
+      // Set form-level error
+      registerForm.setError('root.serverError', {
+        type: 'server',
+        message: err.message
+      });
+
+      // If we have validation details, set field-specific errors
+      if (err.details) {
+        err.details.forEach(detail => {
+          const field = detail.param;
+          if (field) {
+            registerForm.setError(field, {
+              type: 'server',
+              message: detail.msg
+            });
+          }
+        });
+      }
     }
   };
 
@@ -436,6 +469,16 @@ const LoginPage = () => {
           </Form>
         ) : (
           <Form onSubmit={registerForm.handleSubmit(onRegisterSubmit)}>
+            {/* Show form-level errors */}
+            {(error || registerForm.formState.errors.root?.serverError) && (
+              <ErrorAlert
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {error || registerForm.formState.errors.root?.serverError.message}
+              </ErrorAlert>
+            )}
+
             <InputGroup>
               <InputIcon>
                 <FaUser />
@@ -444,13 +487,20 @@ const LoginPage = () => {
                 type="text"
                 placeholder={t('first-name')}
                 autoComplete="given-name"
-                id="firstName"
-                name="firstName"
                 {...registerForm.register('firstName', {
-                  required: t('required-field')
+                  required: t('required-field'),
+                  minLength: {
+                    value: 2,
+                    message: t('name-min-length')
+                  }
                 })}
+                className={registerForm.formState.errors.firstName ? 'error' : ''}
               />
-              {registerForm.formState.errors.firstName && <ErrorMessage>{registerForm.formState.errors.firstName.message}</ErrorMessage>}
+              {registerForm.formState.errors.firstName && (
+                <ErrorMessage>
+                  {registerForm.formState.errors.firstName.message}
+                </ErrorMessage>
+              )}
             </InputGroup>
 
             <InputGroup>

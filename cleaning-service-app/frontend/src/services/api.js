@@ -22,17 +22,51 @@ class ApiService {
     }
 
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      console.log(`🚀 Making ${config.method || 'GET'} request to:`, url);
+      
+      // Test connection before making the actual request
+      try {
+        await fetch(`${this.baseURL}/health`, { method: 'GET' });
+      } catch (connectionError) {
+        console.error('❌ Cannot connect to API server:', connectionError);
+        throw new Error(`Cannot connect to server at ${this.baseURL}. Please ensure the backend server is running.`);
       }
 
+      const response = await fetch(url, config);
+      let data;
+      
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = await response.text();
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+
+      if (!response.ok) {
+        console.error('❌ Request failed:', { status: response.status, data });
+        const error = new Error(data.error || data || `HTTP error! status: ${response.status}`);
+        error.status = response.status;
+        error.response = data;
+        throw error;
+      }
+
+      console.log(`✅ Request successful:`, data);
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+      console.error('❌ API request failed:', error);
+      // Enhance error message based on the type of error
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        throw new Error('Unable to connect to the server. Please check if the backend server is running.');
+      }
+      if (error.response) {
+        throw error;
+      }
+      throw new Error(error.message || 'An unexpected error occurred. Please try again.');
     }
   }
 

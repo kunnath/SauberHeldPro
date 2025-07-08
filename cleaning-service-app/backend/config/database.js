@@ -19,146 +19,152 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 const initializeDatabase = () => {
-  console.log('Initializing database...');
-  
-  // Enable foreign keys
-  db.run('PRAGMA foreign_keys = ON');
+  return new Promise((resolve, reject) => {
+    console.log('✅ Database initialization started');
+    
+    // Enable foreign keys
+    db.run('PRAGMA foreign_keys = ON');
 
-  // Users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      phone TEXT,
-      address TEXT,
-      role TEXT DEFAULT 'customer',
-      email_verified BOOLEAN DEFAULT FALSE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating users table:', err);
-    }
+    // Initialize all tables in sequence
+    db.serialize(() => {
+      // Users table
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        phone TEXT,
+        address TEXT,
+        postal_code TEXT,
+        role TEXT DEFAULT 'customer',
+        email_verified BOOLEAN DEFAULT FALSE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Service types table
+      db.run(`CREATE TABLE IF NOT EXISTS service_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        base_price DECIMAL(10,2) NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        category TEXT DEFAULT 'home',
+        features TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Cleaners table
+      db.run(`CREATE TABLE IF NOT EXISTS cleaners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        phone TEXT,
+        specialties TEXT,
+        rating DECIMAL(3,2) DEFAULT 5.0,
+        experience_years INTEGER DEFAULT 0,
+        is_available BOOLEAN DEFAULT TRUE,
+        hourly_rate DECIMAL(8,2) DEFAULT 25.00,
+        bio TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Bookings table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS bookings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          service_type_id INTEGER NOT NULL,
+          cleaner_id INTEGER,
+          service_date DATE NOT NULL,
+          service_time TIME NOT NULL,
+          estimated_duration INTEGER NOT NULL,
+          total_price DECIMAL(10,2) NOT NULL,
+          status TEXT DEFAULT 'pending',
+          special_instructions TEXT,
+          address TEXT NOT NULL,
+          cancellation_reason TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id),
+          FOREIGN KEY (service_type_id) REFERENCES service_types (id),
+          FOREIGN KEY (cleaner_id) REFERENCES cleaners (id)
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating bookings table:', err);
+        }
+      });
+
+      // Contact messages table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS contact_messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          phone TEXT,
+          subject TEXT,
+          message TEXT NOT NULL,
+          service_interest TEXT,
+          status TEXT DEFAULT 'new',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating contact_messages table:', err);
+        }
+      });
+
+      // Reviews table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS reviews (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          booking_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          cleaner_id INTEGER NOT NULL,
+          rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+          comment TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (booking_id) REFERENCES bookings (id),
+          FOREIGN KEY (user_id) REFERENCES users (id),
+          FOREIGN KEY (cleaner_id) REFERENCES cleaners (id)
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating reviews table:', err);
+        }
+      });
+
+      // Check table structures
+      db.all(`PRAGMA table_info(users)`, (err, rows) => {
+        if (err) {
+          console.error('Error checking users table structure:', err);
+          reject(err);
+          return;
+        }
+        
+        if (!Array.isArray(rows)) {
+          console.error('Unexpected response format when checking table structure');
+          reject(new Error('Invalid table structure response'));
+          return;
+        }
+
+        // Check for postal_code column
+        const hasPostalCode = rows.some(row => row.name === 'postal_code');
+        if (!hasPostalCode) {
+          console.log('Adding postal_code column to users table...');
+          db.run(`ALTER TABLE users ADD COLUMN postal_code TEXT`);
+        }
+
+        console.log('✅ Database initialization completed');
+        resolve();
+      });
+    });
   });
-
-  // Service types table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS service_types (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      base_price DECIMAL(10,2) NOT NULL,
-      duration_minutes INTEGER NOT NULL,
-      category TEXT DEFAULT 'home',
-      features TEXT,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating service_types table:', err);
-    }
-  });
-
-  // Cleaners table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS cleaners (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      phone TEXT,
-      specialties TEXT,
-      rating DECIMAL(3,2) DEFAULT 5.0,
-      experience_years INTEGER DEFAULT 0,
-      is_available BOOLEAN DEFAULT TRUE,
-      hourly_rate DECIMAL(8,2) DEFAULT 25.00,
-      bio TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating cleaners table:', err);
-    }
-  });
-
-  // Bookings table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS bookings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      service_type_id INTEGER NOT NULL,
-      cleaner_id INTEGER,
-      service_date DATE NOT NULL,
-      service_time TIME NOT NULL,
-      estimated_duration INTEGER NOT NULL,
-      total_price DECIMAL(10,2) NOT NULL,
-      status TEXT DEFAULT 'pending',
-      special_instructions TEXT,
-      address TEXT NOT NULL,
-      cancellation_reason TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id),
-      FOREIGN KEY (service_type_id) REFERENCES service_types (id),
-      FOREIGN KEY (cleaner_id) REFERENCES cleaners (id)
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating bookings table:', err);
-    }
-  });
-
-  // Contact messages table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS contact_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      subject TEXT,
-      message TEXT NOT NULL,
-      service_interest TEXT,
-      status TEXT DEFAULT 'new',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating contact_messages table:', err);
-    }
-  });
-
-  // Reviews table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      booking_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      cleaner_id INTEGER NOT NULL,
-      rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-      comment TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (booking_id) REFERENCES bookings (id),
-      FOREIGN KEY (user_id) REFERENCES users (id),
-      FOREIGN KEY (cleaner_id) REFERENCES cleaners (id)
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating reviews table:', err);
-    }
-  });
-
-  // Insert default data after a delay to ensure tables are created
-  setTimeout(() => {
-    insertDefaultData();
-  }, 1000);
-
-  console.log('✅ Database initialization started');
 };
 
 const insertDefaultData = () => {

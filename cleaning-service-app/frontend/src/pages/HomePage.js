@@ -5,6 +5,11 @@ import { motion } from 'framer-motion';
 import { FaPhone, FaEnvelope, FaComments, FaBolt, FaShieldAlt, FaGlobe } from 'react-icons/fa';
 import { useLanguage } from '../contexts/LanguageContext';
 
+const Container = styled.div`
+  width: 100%;
+  overflow: hidden;
+`;
+
 const HeroSection = styled.section`
   background: linear-gradient(135deg, ${props => props.theme.colors.secondary} 0%, ${props => props.theme.colors.accent} 100%);
   color: white;
@@ -295,10 +300,15 @@ const TestimonialAuthor = styled.div`
   color: ${props => props.theme.colors.dark};
 `;
 
+const HeroBackground = styled.div`
+  position: relative;
+  z-index: 1;
+`;
+
 const HomePage = () => {
+  const { t } = useLanguage();
   const [postalCode, setPostalCode] = useState('');
   const navigate = useNavigate();
-  const { t } = useLanguage();
 
   const handleBookNow = () => {
     if (postalCode.trim()) {
@@ -384,9 +394,9 @@ const HomePage = () => {
   ];
 
   return (
-    <>
+    <Container>
       <HeroSection>
-        <div className="container">
+        <HeroBackground>
           <HeroContent>
             <HeroTitle
               initial={{ opacity: 0, y: 30 }}
@@ -426,7 +436,7 @@ const HomePage = () => {
               </PostalForm>
             </PostalSection>
           </HeroContent>
-        </div>
+        </HeroBackground>
       </HeroSection>
 
       <HowItWorksSection>
@@ -560,7 +570,7 @@ const HomePage = () => {
           </TestimonialsGrid>
         </div>
       </TestimonialsSection>
-    </>
+    </Container>
   );
 };
 
